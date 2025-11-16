@@ -16,19 +16,8 @@ A minimal demonstration of agentic AI and model training using Alice in Wonderla
 
 ## Architecture
 
-**Docker Setup (Default):**
 - **Ollama container**: LLM inference (base and trained models)
-  - Runs on CPU only (Docker Desktop on macOS doesn't support GPU passthrough)
-  - Slower but fully containerized
 - **Web container**: Agent logic, training pipeline, web UI
-- **Volumes**: Training data, checkpoints, outputs
-
-**Native Ollama Setup (Metal GPU):**
-- **Native Ollama**: Runs directly on macOS
-  - Uses Metal GPU on Apple Silicon for faster inference
-  - Accessible via `host.docker.internal:11434`
-- **Web container**: Agent logic, training pipeline, web UI
-  - Connects to native Ollama instead of Docker Ollama
 - **Volumes**: Training data, checkpoints, outputs
 
 ## Quick Start
@@ -36,33 +25,16 @@ A minimal demonstration of agentic AI and model training using Alice in Wonderla
 **Prerequisites:**
 - Docker Desktop running
 - 8GB+ RAM available
-- macOS with Apple Silicon (for Metal GPU acceleration - optional)
-
-**Option 1: Quick Start with Docker Ollama (CPU only)**
 
 ```bash
 ./run.sh
 ```
 
 This will:
-- Start Ollama in Docker (CPU only - slower)
+- Start Ollama in Docker
 - Start the web UI
 - Pull the base model if needed
 - Open http://localhost:8000
-
-**Option 2: Native Ollama with Metal GPU (Recommended for Apple Silicon)**
-
-For faster inference with Metal GPU acceleration:
-
-```bash
-./run-with-native-ollama.sh
-```
-
-This will:
-- Start Ollama natively on macOS (Metal GPU enabled)
-- Start only the web container in Docker
-- Connect web container to native Ollama
-- Provide significantly faster inference
 
 **Manual Setup:**
 
@@ -83,11 +55,9 @@ http://localhost:8000
 
 4. In the web UI:
    - Click "Check Models" to verify models are available
-   - Click "Check GPU/Metal" to see GPU status
    - Click "Prepare Training Data" to extract Mad Hatter dialogue
    - Click "Create Trained Model" to create the modelfile
-   - **For Docker Ollama**: Run `./create-model.sh` from host
-   - **For Native Ollama**: Run `./create-model-native.sh` from host
+   - Run `./create-model.sh` from host to create the trained model
    - Use "Model Comparison" to see base vs trained differences
    - Use "Agent Query" to test tool calling with suggested questions
 
@@ -139,7 +109,7 @@ http://localhost:8000
 ## Files
 
 **Core Files:**
-- `server.py`: Web server, agent logic, training API, GPU detection
+- `server.py`: Web server, agent logic, training API
 - `training.py`: Model creation and training functions
 - `data_processor.py`: Extract character dialogue from text
 - `docker-compose.yml`: Container orchestration
@@ -147,10 +117,8 @@ http://localhost:8000
 - `templates/index.html`: Web UI with suggested questions and tool usage display
 
 **Scripts:**
-- `run.sh`: Quick start with Docker Ollama (CPU only)
-- `run-with-native-ollama.sh`: Start with native Ollama (Metal GPU)
-- `create-model.sh`: Create trained model in Docker Ollama (run from host)
-- `create-model-native.sh`: Create trained model in native Ollama (run from host)
+- `run.sh`: Quick start script
+- `create-model.sh`: Create trained model (run from host)
 - `cleanup.sh`: Clean up containers and volumes
 
 **Data:**
@@ -187,54 +155,6 @@ The trained model (mad-hatter) should:
 
 Base model (llama3.1) responds normally.
 
-## Metal GPU Support
-
-**Important:** Docker Desktop on macOS does **not support GPU passthrough**. Ollama running in Docker containers will always use CPU, even on Apple Silicon.
-
-**To Enable Metal GPU:**
-
-Use the native Ollama setup for Metal GPU acceleration on Apple Silicon:
-
-1. **Install Ollama natively** (if not already installed):
-   ```bash
-   brew install ollama
-   # OR download from https://ollama.com/download
-   ```
-
-2. **Run with native Ollama:**
-   ```bash
-   ./run-with-native-ollama.sh
-   ```
-
-This script:
-- Starts Ollama natively on macOS (Metal GPU enabled automatically)
-- Runs only the web container in Docker
-- Connects the web container to native Ollama via `host.docker.internal:11434`
-- Provides significantly faster inference (2-5x speedup on Apple Silicon)
-
-**Verifying GPU Usage:**
-
-In the web UI:
-- Click "Check GPU/Metal" button to see current GPU status
-- Shows "Metal GPU (native Ollama)" when using native Ollama
-- Shows "CPU (Docker container)" when using Docker Ollama
-
-From command line:
-```bash
-# Check if Metal is being used (native Ollama)
-ollama ps
-
-# Monitor GPU usage
-# Open Activity Monitor > Window > GPU History
-# You should see GPU activity when running queries
-```
-
-**Performance:**
-- **Docker Ollama (CPU)**: ~5-15 seconds per query
-- **Native Ollama (Metal GPU)**: ~2-5 seconds per query (Apple Silicon)
-
-The demo works on CPU, but Metal GPU provides significantly faster inference.
-
 ## Limitations
 
 This is a simplified training demo:
@@ -260,36 +180,15 @@ docker exec training-ollama ollama pull llama3.1
 - Verify training data was prepared
 - Check container logs: `docker logs training-web`
 
-**Model not found in native Ollama:**
-- If you created the model in Docker Ollama, you need to create it in native Ollama too
-- Run `./create-model-native.sh` from the host machine
-- Verify: `ollama list` should show `mad-hatter`
-
 **Agent not responding:**
-- **Docker Ollama**: Verify container is running: `docker ps | grep ollama`
-- **Docker Ollama**: Check logs: `docker logs training-ollama`
-- **Native Ollama**: Verify Ollama is running: `ollama ps` or check if port 11434 is accessible
-- **Native Ollama**: Check if web container can reach it: `docker exec training-web curl -s http://host.docker.internal:11434/api/tags`
-
-**Metal GPU not working:**
-- Docker Ollama always runs on CPU (Docker Desktop limitation)
-- Use `./run-with-native-ollama.sh` for Metal GPU support
-- Verify native Ollama is running: `ollama ps`
-- Check GPU status in web UI: Click "Check GPU/Metal"
-- Monitor GPU usage: Activity Monitor > Window > GPU History
+- Verify container is running: `docker ps | grep ollama`
+- Check logs: `docker logs training-ollama`
 
 ## Cleanup
 
-**Stop Docker setup:**
+**Stop containers:**
 ```bash
 docker compose down
-```
-
-**Stop native Ollama setup:**
-```bash
-docker compose stop web
-docker compose rm -f web
-ollama stop  # or kill the Ollama process
 ```
 
 **Remove volumes (deletes models):**
@@ -297,7 +196,7 @@ ollama stop  # or kill the Ollama process
 docker compose down -v
 ```
 
-**Full cleanup (including images):**
+**Full cleanup:**
 ```bash
 ./cleanup.sh
 ```

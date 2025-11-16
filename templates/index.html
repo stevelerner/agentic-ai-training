@@ -183,6 +183,60 @@
             max-width: 100%;
         }
         
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin: 15px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+        
+        .metric-item {
+            text-align: center;
+        }
+        
+        .metric-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .metric-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .trait-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            margin: 2px;
+            background: #e3f2fd;
+            color: #1976d2;
+            border-radius: 12px;
+            font-size: 12px;
+        }
+        
+        .trait-badge.active {
+            background: #c8e6c9;
+            color: #2e7d32;
+        }
+        
+        .insights {
+            margin-top: 20px;
+            padding: 15px;
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            border-radius: 4px;
+        }
+        
+        .insights h4 {
+            margin-bottom: 10px;
+            color: #856404;
+        }
+        
         .loading {
             display: inline-block;
             width: 16px;
@@ -217,10 +271,8 @@
         <div class="section">
             <h2>Model Status</h2>
             <div id="model-status" class="status" style="display:none;">Checking models...</div>
-            <div id="gpu-status" class="status" style="display:none;"></div>
             <div class="button-group">
                 <button onclick="checkModels()">Check Models</button>
-                <button onclick="checkGPU()">Check GPU/Metal</button>
             </div>
         </div>
         
@@ -282,36 +334,6 @@
                 statusDiv.className = 'status ' + (data.base && data.trained ? 'success' : '');
             } catch (error) {
                 statusDiv.textContent = 'Error checking models: ' + error.message;
-                statusDiv.className = 'status error';
-            }
-        }
-        
-        async function checkGPU() {
-            const statusDiv = document.getElementById('gpu-status');
-            statusDiv.style.display = 'block';
-            statusDiv.textContent = 'Checking GPU/Metal status...';
-            statusDiv.className = 'status';
-            
-            try {
-                const response = await fetch('/api/gpu');
-                const data = await response.json();
-                
-                let html = 'GPU/Metal: ';
-                if (data.gpu_available) {
-                    html += '<strong>' + data.device + '</strong> (GPU acceleration active)';
-                    statusDiv.className = 'status success';
-                } else {
-                    html += '<strong>' + data.device + '</strong> (running on CPU)';
-                    statusDiv.className = 'status';
-                }
-                
-                if (data.note) {
-                    html += '<br><span style="font-size: 12px; color: #666; margin-top: 5px; display: block;">' + data.note + '</span>';
-                }
-                
-                statusDiv.innerHTML = html;
-            } catch (error) {
-                statusDiv.textContent = 'Error checking GPU: ' + error.message;
                 statusDiv.className = 'status error';
             }
         }
@@ -411,6 +433,18 @@
                 let html = `<h3>Final Response (${data.model})</h3>`;
                 html += `<pre>${data.final_answer}</pre>`;
                 
+                // Display token usage
+                if (data.usage) {
+                    const usage = data.usage;
+                    const evalTime = usage.eval_duration_ns ? (usage.eval_duration_ns / 1000000000).toFixed(2) : 'N/A';
+                    html += `<div class="metrics">`;
+                    html += `<div class="metric-item"><div class="metric-label">Prompt Tokens</div><div class="metric-value">${usage.prompt_tokens || 0}</div></div>`;
+                    html += `<div class="metric-item"><div class="metric-label">Completion Tokens</div><div class="metric-value">${usage.completion_tokens || 0}</div></div>`;
+                    html += `<div class="metric-item"><div class="metric-label">Total Tokens</div><div class="metric-value">${usage.total_tokens || 0}</div></div>`;
+                    html += `<div class="metric-item"><div class="metric-label">Generation Time</div><div class="metric-value">${evalTime}s</div></div>`;
+                    html += `</div>`;
+                }
+                
                 if (data.steps && data.steps.length > 0) {
                     html += '<h3 style="margin-top: 20px;">Agent Steps (Tool Usage):</h3>';
                     html += '<div style="background: #f8f9fa; padding: 15px; border-radius: 4px; margin-top: 10px;">';
@@ -461,15 +495,107 @@
                 const data = await response.json();
                 
                 let html = '<div class="comparison">';
+                
+                // Base Model
                 html += `<div class="comparison-item">
-                    <h4>Base Model (${data.base_model.model})</h4>
-                    <pre>${data.base_model.response}</pre>
-                </div>`;
+                    <h4>Base Model (${data.base_model.model})</h4>`;
+                
+                // Base model metrics
+                if (data.base_model.usage) {
+                    const usage = data.base_model.usage;
+                    const evalTime = usage.eval_duration_ns ? (usage.eval_duration_ns / 1000000000).toFixed(2) : 'N/A';
+                    html += `<div class="metrics">`;
+                    html += `<div class="metric-item"><div class="metric-label">Total Tokens</div><div class="metric-value">${usage.total_tokens || 0}</div></div>`;
+                    html += `<div class="metric-item"><div class="metric-label">Prompt</div><div class="metric-value">${usage.prompt_tokens || 0}</div></div>`;
+                    html += `<div class="metric-item"><div class="metric-label">Completion</div><div class="metric-value">${usage.completion_tokens || 0}</div></div>`;
+                    html += `<div class="metric-item"><div class="metric-label">Time</div><div class="metric-value">${evalTime}s</div></div>`;
+                    html += `</div>`;
+                }
+                
+                // Base model analysis
+                if (data.base_model.analysis) {
+                    const analysis = data.base_model.analysis;
+                    html += `<div style="margin: 10px 0; padding: 10px; background: #f8f9fa; border-radius: 4px;">`;
+                    html += `<div style="font-size: 13px; margin-bottom: 8px;"><strong>Character Score:</strong> ${analysis.character_score}%</div>`;
+                    html += `<div style="font-size: 13px; margin-bottom: 8px;"><strong>Word Count:</strong> ${analysis.word_count} words</div>`;
+                    html += `<div style="font-size: 13px;">`;
+                    html += `<span class="trait-badge ${analysis.has_time_reference ? 'active' : ''}">Time</span>`;
+                    html += `<span class="trait-badge ${analysis.has_tea_reference ? 'active' : ''}">Tea</span>`;
+                    html += `<span class="trait-badge ${analysis.has_riddle ? 'active' : ''}">Riddle</span>`;
+                    html += `</div>`;
+                    html += `</div>`;
+                }
+                
+                html += `<pre>${data.base_model.response}</pre>`;
+                html += `</div>`;
+                
+                // Trained Model
                 html += `<div class="comparison-item">
-                    <h4>Trained Model (${data.trained_model.model})</h4>
-                    <pre>${data.trained_model.response}</pre>
-                </div>`;
+                    <h4>Trained Model (${data.trained_model.model})</h4>`;
+                
+                // Trained model metrics
+                if (data.trained_model.usage) {
+                    const usage = data.trained_model.usage;
+                    const evalTime = usage.eval_duration_ns ? (usage.eval_duration_ns / 1000000000).toFixed(2) : 'N/A';
+                    html += `<div class="metrics">`;
+                    html += `<div class="metric-item"><div class="metric-label">Total Tokens</div><div class="metric-value">${usage.total_tokens || 0}</div></div>`;
+                    html += `<div class="metric-item"><div class="metric-label">Prompt</div><div class="metric-value">${usage.prompt_tokens || 0}</div></div>`;
+                    html += `<div class="metric-item"><div class="metric-label">Completion</div><div class="metric-value">${usage.completion_tokens || 0}</div></div>`;
+                    html += `<div class="metric-item"><div class="metric-label">Time</div><div class="metric-value">${evalTime}s</div></div>`;
+                    html += `</div>`;
+                }
+                
+                // Trained model analysis
+                if (data.trained_model.analysis) {
+                    const analysis = data.trained_model.analysis;
+                    html += `<div style="margin: 10px 0; padding: 10px; background: #f8f9fa; border-radius: 4px;">`;
+                    html += `<div style="font-size: 13px; margin-bottom: 8px;"><strong>Character Score:</strong> ${analysis.character_score}% <span style="color: ${analysis.character_score > 0 ? '#28a745' : '#666'}">(${analysis.character_score > 0 ? '+' : ''}${data.differences?.character_score_diff || 0}%)</span></div>`;
+                    html += `<div style="font-size: 13px; margin-bottom: 8px;"><strong>Word Count:</strong> ${analysis.word_count} words <span style="color: ${data.differences?.word_diff > 0 ? '#28a745' : data.differences?.word_diff < 0 ? '#dc3545' : '#666'}">(${data.differences?.word_diff > 0 ? '+' : ''}${data.differences?.word_diff || 0})</span></div>`;
+                    html += `<div style="font-size: 13px;">`;
+                    html += `<span class="trait-badge ${analysis.has_time_reference ? 'active' : ''}">Time</span>`;
+                    html += `<span class="trait-badge ${analysis.has_tea_reference ? 'active' : ''}">Tea</span>`;
+                    html += `<span class="trait-badge ${analysis.has_riddle ? 'active' : ''}">Riddle</span>`;
+                    html += `</div>`;
+                    html += `</div>`;
+                }
+                
+                html += `<pre>${data.trained_model.response}</pre>`;
+                html += `</div>`;
                 html += '</div>';
+                
+                // Insights section
+                if (data.differences) {
+                    html += `<div class="insights">`;
+                    html += `<h4>Key Insights</h4>`;
+                    html += `<ul style="margin: 0; padding-left: 20px;">`;
+                    
+                    if (data.differences.trained_more_characteristic) {
+                        html += `<li>The trained model shows <strong>${Math.abs(data.differences.character_score_diff)}% higher</strong> character score, indicating it's more in-character as the Mad Hatter.</li>`;
+                    } else if (data.differences.character_score_diff < 0) {
+                        html += `<li>The base model actually scored higher on character traits in this response.</li>`;
+                    }
+                    
+                    if (data.differences.token_diff !== 0) {
+                        const tokenDiff = data.differences.token_diff;
+                        html += `<li>Token usage difference: <strong>${tokenDiff > 0 ? '+' : ''}${tokenDiff} tokens</strong> (${tokenDiff > 0 ? 'trained used more' : 'trained used fewer'}).</li>`;
+                    }
+                    
+                    if (data.differences.word_diff !== 0) {
+                        const wordDiff = data.differences.word_diff;
+                        html += `<li>Response length difference: <strong>${wordDiff > 0 ? '+' : ''}${wordDiff} words</strong> (${wordDiff > 0 ? 'trained is longer' : 'trained is shorter'}).</li>`;
+                    }
+                    
+                    if (data.trained_model.analysis?.has_time_reference && !data.base_model.analysis?.has_time_reference) {
+                        html += `<li>✓ Trained model references time/tea time (characteristic of Mad Hatter).</li>`;
+                    }
+                    
+                    if (data.trained_model.analysis?.has_riddle && !data.base_model.analysis?.has_riddle) {
+                        html += `<li>✓ Trained model includes riddles (characteristic of Mad Hatter).</li>`;
+                    }
+                    
+                    html += `</ul>`;
+                    html += `</div>`;
+                }
                 
                 responseDiv.innerHTML = html;
             } catch (error) {

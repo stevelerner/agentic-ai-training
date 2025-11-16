@@ -70,8 +70,8 @@ class TrainingAgent:
         self.model = BASE_MODEL
         self.conversation_history = []
         
-    def call_ollama(self, messages: list, model: Optional[str] = None) -> str:
-        """Call Ollama API to get LLM response."""
+    def call_ollama(self, messages: list, model: Optional[str] = None) -> tuple:
+        """Call Ollama API to get LLM response and token usage."""
         model = model or self.model
         try:
             response = requests.post(
@@ -85,9 +85,18 @@ class TrainingAgent:
                 timeout=60
             )
             response.raise_for_status()
-            return response.json()["message"]["content"]
+            data = response.json()
+            content = data["message"]["content"]
+            usage = {
+                "prompt_tokens": data.get("prompt_eval_count", 0),
+                "completion_tokens": data.get("eval_count", 0),
+                "total_tokens": data.get("prompt_eval_count", 0) + data.get("eval_count", 0),
+                "eval_duration_ns": data.get("eval_duration", 0),
+                "total_duration_ns": data.get("total_duration", 0)
+            }
+            return content, usage
         except Exception as e:
-            return f"Error calling Ollama: {e}"
+            return f"Error calling Ollama: {e}", {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0, "eval_duration_ns": 0, "total_duration_ns": 0}
     
     def parse_tool_call(self, text: str) -> Optional[tuple]:
         """Extract tool call from LLM response."""
@@ -158,9 +167,17 @@ Think step by step and use tools when needed."""
             ]
         
         steps = []
+        total_usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0, "eval_duration_ns": 0, "total_duration_ns": 0}
         
         for iteration in range(1, max_iterations + 1):
-            response = self.call_ollama(messages, model=model)
+            response, usage = self.call_ollama(messages, model=model)
+            
+            # Accumulate token usage
+            total_usage["prompt_tokens"] += usage.get("prompt_tokens", 0)
+            total_usage["completion_tokens"] += usage.get("completion_tokens", 0)
+            total_usage["total_tokens"] += usage.get("total_tokens", 0)
+            total_usage["eval_duration_ns"] += usage.get("eval_duration_ns", 0)
+            total_usage["total_duration_ns"] += usage.get("total_duration_ns", 0)
             
             tool_call = self.parse_tool_call(response)
             
@@ -174,7 +191,8 @@ Think step by step and use tools when needed."""
                     "tool": tool_name,
                     "arguments": arguments,
                     "result": result,
-                    "response": response
+                    "response": response,
+                    "usage": usage
                 })
                 
                 messages.append({"role": "assistant", "content": response})
@@ -186,19 +204,66 @@ Think step by step and use tools when needed."""
                 steps.append({
                     "iteration": iteration,
                     "type": "final_answer",
-                    "response": response
+                    "response": response,
+                    "usage": usage
                 })
                 return {
                     "final_answer": response,
                     "steps": steps,
-                    "model": model
+                    "model": model,
+                    "usage": total_usage
                 }
         
         return {
             "final_answer": "Maximum iterations reached.",
             "steps": steps,
-            "model": model
+            "model": model,
+            "usage": total_usage
         }
+
+
+# ============================================================================
+# ANALYSIS FUNCTIONS
+# ============================================================================
+
+def analyze_response(response_text: str) -> Dict[str, Any]:
+    """Analyze response for character-specific traits and metrics."""
+    text_lower = response_text.lower()
+    
+    # Mad Hatter character indicators
+    character_keywords = {
+        "time": ["time", "o'clock", "clock", "hour", "minute", "tea time"],
+        "tea": ["tea", "tea party", "cup", "saucer"],
+        "riddle": ["riddle", "why is a raven", "writing-desk", "puzzle"],
+        "absurd": ["nonsense", "curious", "mad", "wonderland", "alice"],
+        "philosophical": ["meaning", "say what you mean", "mean what you say", "philosophy"]
+    }
+    
+    detected_traits = {}
+    for trait, keywords in character_keywords.items():
+        count = sum(1 for keyword in keywords if keyword in text_lower)
+        detected_traits[trait] = count
+    
+    # Response metrics
+    word_count = len(response_text.split())
+    char_count = len(response_text)
+    sentence_count = response_text.count('.') + response_text.count('!') + response_text.count('?')
+    
+    # Calculate character score (how much it matches Mad Hatter traits)
+    trait_score = sum(detected_traits.values())
+    max_possible = sum(len(keywords) for keywords in character_keywords.values())
+    character_score = (trait_score / max_possible * 100) if max_possible > 0 else 0
+    
+    return {
+        "word_count": word_count,
+        "char_count": char_count,
+        "sentence_count": sentence_count,
+        "detected_traits": detected_traits,
+        "character_score": round(character_score, 1),
+        "has_time_reference": detected_traits.get("time", 0) > 0,
+        "has_tea_reference": detected_traits.get("tea", 0) > 0,
+        "has_riddle": detected_traits.get("riddle", 0) > 0
+    }
 
 
 # ============================================================================
@@ -222,109 +287,6 @@ def check_models() -> Dict[str, bool]:
     except:
         pass
     return {"base": False, "trained": False, "all_models": []}
-
-
-def check_gpu() -> Dict[str, Any]:
-    """Check if Metal GPU is being used by Ollama."""
-    try:
-        import subprocess
-        import os
-        
-        # Check OLLAMA_HOST to determine if using native Ollama
-        ollama_host = os.getenv("OLLAMA_HOST", OLLAMA_HOST)
-        
-        # If OLLAMA_HOST points to host.docker.internal, we're using native Ollama
-        if "host.docker.internal" in ollama_host:
-            # Native Ollama on macOS - Metal GPU should be available on Apple Silicon
-            return {
-                "device": "Metal GPU (native Ollama)",
-                "gpu_available": True,
-                "note": "Using native Ollama via host.docker.internal. On Apple Silicon, this uses Metal GPU."
-            }
-        
-        # Check if native Ollama is accessible (for cases where OLLAMA_HOST isn't set correctly)
-        try:
-            # Try to check if Docker Ollama container exists
-            docker_check = subprocess.run(
-                ["docker", "ps", "--filter", "name=training-ollama", "--format", "{{.Names}}"],
-                capture_output=True,
-                text=True,
-                timeout=2
-            )
-            if "training-ollama" not in docker_check.stdout:
-                # Docker Ollama not running - might be native Ollama
-                # Check if we can reach Ollama (native would be on host)
-                try:
-                    result = subprocess.run(
-                        ["curl", "-s", "http://host.docker.internal:11434/api/tags"],
-                        capture_output=True,
-                        text=True,
-                        timeout=2
-                    )
-                    if result.returncode == 0:
-                        return {
-                            "device": "Metal GPU (native Ollama)",
-                            "gpu_available": True,
-                            "note": "Native Ollama detected. On Apple Silicon, this uses Metal GPU."
-                        }
-                except:
-                    pass
-        except:
-            pass
-        
-        # Check Docker Ollama logs (will always be CPU)
-        try:
-            result = subprocess.run(
-                ["docker", "logs", "training-ollama"],
-                capture_output=True,
-                text=True,
-                timeout=5
-            )
-            logs = result.stdout + result.stderr
-            
-            # Look for device information in logs
-            if "device=CPU" in logs:
-                return {
-                    "device": "CPU (Docker container)",
-                    "gpu_available": False,
-                    "note": "Docker Desktop on macOS does not support GPU passthrough. Use native Ollama for Metal GPU."
-                }
-            elif "device=GPU" in logs or "device=Metal" in logs:
-                return {
-                    "device": "GPU/Metal",
-                    "gpu_available": True
-                }
-            else:
-                # Check recent model load logs
-                recent_logs = logs.split('\n')[-100:]  # Last 100 lines
-                for line in recent_logs:
-                    if "device=" in line:
-                        if "CPU" in line:
-                            return {
-                                "device": "CPU (Docker container)",
-                                "gpu_available": False,
-                                "note": "Docker Desktop on macOS does not support GPU passthrough. Use native Ollama for Metal GPU."
-                            }
-                        elif "GPU" in line or "Metal" in line:
-                            return {
-                                "device": "GPU/Metal",
-                                "gpu_available": True
-                            }
-        except:
-            pass
-        
-        # Default - can't determine
-        return {
-            "device": "Unknown (likely CPU)",
-            "gpu_available": False,
-            "note": "Cannot determine GPU status. If using Docker, Metal GPU is not available. Use native Ollama for Metal GPU support."
-        }
-    except Exception as e:
-        return {
-            "device": "Error checking",
-            "gpu_available": False,
-            "error": str(e)
-        }
 
 
 def prepare_training_data() -> Dict:
@@ -395,110 +357,74 @@ def create_trained_model() -> Dict:
         except:
             pass
         
-        # Check if using native Ollama or Docker Ollama
-        ollama_host_env = os.getenv("OLLAMA_HOST", OLLAMA_HOST)
-        using_native_ollama = "host.docker.internal" in ollama_host_env
+        # Docker Ollama - use docker commands
+        # Read modelfile content
+        with open(modelfile_path, 'r') as f:
+            modelfile_content = f.read()
         
-        if using_native_ollama:
-            # Native Ollama - create model directly
-            try:
-                # Check if ollama command is available (from host)
-                # Since we're in a container, we need to use the modelfile path
-                # The modelfile is in checkpoints/ which is mounted as a volume
-                host_modelfile_path = f"checkpoints/{TRAINED_MODEL}.modelfile"
-                
-                # For native Ollama, we can't execute ollama create from inside container
-                # Provide instructions to run from host
-                return {
-                    "status": "ready",
-                    "message": f"Modelfile created. Run from host machine to create model in native Ollama:",
-                    "modelfile": modelfile_path,
-                    "steps": [
-                        f"./create-model-native.sh",
-                        f"Or manually: ollama create {TRAINED_MODEL} -f {host_modelfile_path}"
-                    ]
-                }
-            except Exception as e:
-                host_modelfile_path = f"checkpoints/{TRAINED_MODEL}.modelfile"
-                return {
-                    "status": "ready",
-                    "message": f"Modelfile created. Run from host:",
-                    "modelfile": modelfile_path,
-                    "error": str(e),
-                    "steps": [
-                        f"./create-model-native.sh",
-                        f"Or manually: ollama create {TRAINED_MODEL} -f {host_modelfile_path}"
-                    ]
-                }
-        else:
-            # Docker Ollama - use docker commands
-            # Read modelfile content
-            with open(modelfile_path, 'r') as f:
-                modelfile_content = f.read()
+        # Try to execute docker commands to create the model
+        try:
+            # Write modelfile directly to Ollama container using docker exec
+            # This avoids path issues with docker cp from inside container
+            write_result = subprocess.run([
+                "docker", "exec", "-i", "training-ollama",
+                "sh", "-c", f"cat > /root/.ollama/{TRAINED_MODEL}.modelfile"
+            ], input=modelfile_content, capture_output=True, text=True, timeout=30)
             
-            # Try to execute docker commands to create the model
-            try:
-                # Write modelfile directly to Ollama container using docker exec
-                # This avoids path issues with docker cp from inside container
-                write_result = subprocess.run([
-                    "docker", "exec", "-i", "training-ollama",
-                    "sh", "-c", f"cat > /root/.ollama/{TRAINED_MODEL}.modelfile"
-                ], input=modelfile_content, capture_output=True, text=True, timeout=30)
-                
-                if write_result.returncode != 0:
-                    raise Exception(f"Failed to write modelfile: {write_result.stderr}")
-                
-                # Create model in Ollama
-                create_result = subprocess.run([
-                    "docker", "exec", "training-ollama",
-                    "ollama", "create", TRAINED_MODEL,
-                    "-f", f"/root/.ollama/{TRAINED_MODEL}.modelfile"
-                ], capture_output=True, text=True, timeout=120)
-                
-                if create_result.returncode == 0:
-                    return {
-                        "status": "success",
-                        "message": f"Model '{TRAINED_MODEL}' created successfully!",
-                        "modelfile": modelfile_path,
-                        "output": create_result.stdout
-                    }
-                else:
-                    # Docker commands failed, provide manual instructions
-                    host_modelfile_path = f"checkpoints/{TRAINED_MODEL}.modelfile"
-                    return {
-                        "status": "ready",
-                        "message": f"Modelfile created. Docker commands failed. Run from host:",
-                        "modelfile": modelfile_path,
-                        "error": create_result.stderr,
-                        "steps": [
-                            f"./create-model.sh",
-                            f"Or manually: docker cp {host_modelfile_path} training-ollama:/root/.ollama/{TRAINED_MODEL}.modelfile && docker exec training-ollama ollama create {TRAINED_MODEL} -f /root/.ollama/{TRAINED_MODEL}.modelfile"
-                        ]
-                    }
-            except FileNotFoundError:
-                # Docker command not found - provide manual instructions
+            if write_result.returncode != 0:
+                raise Exception(f"Failed to write modelfile: {write_result.stderr}")
+            
+            # Create model in Ollama
+            create_result = subprocess.run([
+                "docker", "exec", "training-ollama",
+                "ollama", "create", TRAINED_MODEL,
+                "-f", f"/root/.ollama/{TRAINED_MODEL}.modelfile"
+            ], capture_output=True, text=True, timeout=120)
+            
+            if create_result.returncode == 0:
+                return {
+                    "status": "success",
+                    "message": f"Model '{TRAINED_MODEL}' created successfully!",
+                    "modelfile": modelfile_path,
+                    "output": create_result.stdout
+                }
+            else:
+                # Docker commands failed, provide manual instructions
                 host_modelfile_path = f"checkpoints/{TRAINED_MODEL}.modelfile"
                 return {
                     "status": "ready",
-                    "message": f"Modelfile created. Docker not available in container. Run from host:",
+                    "message": f"Modelfile created. Docker commands failed. Run from host:",
                     "modelfile": modelfile_path,
+                    "error": create_result.stderr,
                     "steps": [
                         f"./create-model.sh",
                         f"Or manually: docker cp {host_modelfile_path} training-ollama:/root/.ollama/{TRAINED_MODEL}.modelfile && docker exec training-ollama ollama create {TRAINED_MODEL} -f /root/.ollama/{TRAINED_MODEL}.modelfile"
                     ]
                 }
-            except Exception as e:
-                # Other error - provide manual instructions
-                host_modelfile_path = f"checkpoints/{TRAINED_MODEL}.modelfile"
-                return {
-                    "status": "ready",
-                    "message": f"Modelfile created. Error executing docker: {str(e)}. Run from host:",
-                    "modelfile": modelfile_path,
-                    "steps": [
-                        f"./create-model.sh",
-                        f"Or manually: docker cp {host_modelfile_path} training-ollama:/root/.ollama/{TRAINED_MODEL}.modelfile && docker exec training-ollama ollama create {TRAINED_MODEL} -f /root/.ollama/{TRAINED_MODEL}.modelfile"
-                    ]
-                }
+        except FileNotFoundError:
+            # Docker command not found - provide manual instructions
+            host_modelfile_path = f"checkpoints/{TRAINED_MODEL}.modelfile"
+            return {
+                "status": "ready",
+                "message": f"Modelfile created. Docker not available in container. Run from host:",
+                "modelfile": modelfile_path,
+                "steps": [
+                    f"./create-model.sh",
+                    f"Or manually: docker cp {host_modelfile_path} training-ollama:/root/.ollama/{TRAINED_MODEL}.modelfile && docker exec training-ollama ollama create {TRAINED_MODEL} -f /root/.ollama/{TRAINED_MODEL}.modelfile"
+                ]
+            }
+        except Exception as e:
+            # Other error - provide manual instructions
+            host_modelfile_path = f"checkpoints/{TRAINED_MODEL}.modelfile"
+            return {
+                "status": "ready",
+                "message": f"Modelfile created. Error executing docker: {str(e)}. Run from host:",
+                "modelfile": modelfile_path,
+                "steps": [
+                    f"./create-model.sh",
+                    f"Or manually: docker cp {host_modelfile_path} training-ollama:/root/.ollama/{TRAINED_MODEL}.modelfile && docker exec training-ollama ollama create {TRAINED_MODEL} -f /root/.ollama/{TRAINED_MODEL}.modelfile"
+                ]
+            }
         
     except Exception as e:
         return {"status": "error", "message": str(e)}
@@ -533,12 +459,6 @@ def models():
     return jsonify(check_models())
 
 
-@app.route('/api/gpu', methods=['GET'])
-def gpu():
-    """Check GPU/Metal status."""
-    return jsonify(check_gpu())
-
-
 @app.route('/api/training/prepare', methods=['POST'])
 def prepare_data():
     """Prepare training data from Alice in Wonderland."""
@@ -553,7 +473,7 @@ def create_model():
 
 @app.route('/api/compare', methods=['POST'])
 def compare_models():
-    """Compare responses from base and trained models."""
+    """Compare responses from base and trained models with metrics."""
     data = request.json
     query_text = data.get("query", "")
     
@@ -562,15 +482,37 @@ def compare_models():
     base_result = agent.run(query_text, model=BASE_MODEL)
     trained_result = agent.run(query_text, model=TRAINED_MODEL)
     
+    base_response = base_result.get("final_answer", "")
+    trained_response = trained_result.get("final_answer", "")
+    
+    # Analyze responses
+    base_analysis = analyze_response(base_response)
+    trained_analysis = analyze_response(trained_response)
+    
+    # Calculate differences
+    token_diff = trained_result.get("usage", {}).get("total_tokens", 0) - base_result.get("usage", {}).get("total_tokens", 0)
+    word_diff = trained_analysis["word_count"] - base_analysis["word_count"]
+    char_score_diff = trained_analysis["character_score"] - base_analysis["character_score"]
+    
     return jsonify({
         "query": query_text,
         "base_model": {
             "model": BASE_MODEL,
-            "response": base_result.get("final_answer", "")
+            "response": base_response,
+            "usage": base_result.get("usage", {}),
+            "analysis": base_analysis
         },
         "trained_model": {
             "model": TRAINED_MODEL,
-            "response": trained_result.get("final_answer", "")
+            "response": trained_response,
+            "usage": trained_result.get("usage", {}),
+            "analysis": trained_analysis
+        },
+        "differences": {
+            "token_diff": token_diff,
+            "word_diff": word_diff,
+            "character_score_diff": round(char_score_diff, 1),
+            "trained_more_characteristic": char_score_diff > 0
         }
     })
 
