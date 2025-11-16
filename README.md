@@ -48,7 +48,8 @@ http://localhost:8000
 
 4. In the web UI:
    - Click "Prepare Training Data" to extract Mad Hatter dialogue
-   - Click "Create Trained Model" to train the model
+   - Click "Create Trained Model" to create the modelfile
+   - Run the helper script from host: `./create-model.sh`
    - Use "Agent Query" to test tool calling
    - Use "Model Comparison" to see base vs trained differences
 
@@ -58,14 +59,14 @@ http://localhost:8000
 - Single request → single response
 - No actions beyond text generation
 - Cannot interact with external systems
-- Example: "What is 25 * 4?" → "100"
+- Example: "What time is it?" → "It's currently 3:45 PM"
 
 **Agentic AI (This Demo):**
 - Multi-step reasoning loop (ReAct pattern)
 - Decides when to use tools autonomously
 - Executes actions (calculate, save files)
 - Observes results and adapts
-- Example: "Calculate 25 * 4 and save to file" → Uses calculator tool → Saves result → Confirms completion
+- Example: "Ask the Mad Hatter what time it is, calculate 6 o'clock in minutes, and save the result" → Queries trained model → Gets "It's always six o'clock!" → Calculates 6 * 60 = 360 → Saves to file → Confirms completion
 
 **Key Difference:**
 - Agentic: Can take actions, use tools, iterate until task complete
@@ -106,6 +107,7 @@ http://localhost:8000
 - `Dockerfile`: Web service container
 - `templates/index.html`: Web UI
 - `alice_in_wonderland.txt`: Source text for training
+- `create-model.sh`: Helper script to create trained model from modelfile
 
 ## Example Queries
 

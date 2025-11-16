@@ -235,7 +235,7 @@ def prepare_training_data() -> Dict:
 
 
 def create_trained_model() -> Dict:
-    """Create the trained model in Ollama."""
+    """Create the trained model modelfile. Model creation requires docker command from host."""
     try:
         from training import create_trained_model_via_api
         
@@ -251,34 +251,92 @@ def create_trained_model() -> Dict:
             output_model_name=TRAINED_MODEL
         )
         
-        # Copy modelfile to Ollama container and create model
+        # Modelfile is in checkpoints/ which is mounted as volume
+        # Path inside container: /app/checkpoints/mad-hatter.modelfile
+        # Path on host: ./checkpoints/mad-hatter.modelfile (relative to project root)
+        
+        # Check if model already exists
         try:
-            subprocess.run([
-                "docker", "cp", modelfile_path,
-                f"training-ollama:/root/.ollama/{TRAINED_MODEL}.modelfile"
-            ], check=True, capture_output=True)
+            response = requests.get(f"{OLLAMA_HOST}/api/tags", timeout=5)
+            if response.status_code == 200:
+                models = response.json().get("models", [])
+                model_names = [m.get("name", "") for m in models]
+                if TRAINED_MODEL in model_names:
+                    return {
+                        "status": "success",
+                        "message": f"Model '{TRAINED_MODEL}' already exists",
+                        "modelfile": modelfile_path
+                    }
+        except:
+            pass
+        
+        # Try to create the model automatically via docker commands
+        # Read modelfile content
+        with open(modelfile_path, 'r') as f:
+            modelfile_content = f.read()
+        
+        # Try to execute docker commands to create the model
+        try:
+            # Write modelfile directly to Ollama container using docker exec
+            # This avoids path issues with docker cp from inside container
+            write_result = subprocess.run([
+                "docker", "exec", "-i", "training-ollama",
+                "sh", "-c", f"cat > /root/.ollama/{TRAINED_MODEL}.modelfile"
+            ], input=modelfile_content, capture_output=True, text=True, timeout=30)
             
-            result = subprocess.run([
+            if write_result.returncode != 0:
+                raise Exception(f"Failed to write modelfile: {write_result.stderr}")
+            
+            # Create model in Ollama
+            create_result = subprocess.run([
                 "docker", "exec", "training-ollama",
                 "ollama", "create", TRAINED_MODEL,
                 "-f", f"/root/.ollama/{TRAINED_MODEL}.modelfile"
-            ], capture_output=True, text=True)
+            ], capture_output=True, text=True, timeout=120)
             
-            if result.returncode == 0:
+            if create_result.returncode == 0:
                 return {
                     "status": "success",
-                    "message": f"Model '{TRAINED_MODEL}' created successfully",
-                    "modelfile": modelfile_path
+                    "message": f"Model '{TRAINED_MODEL}' created successfully!",
+                    "modelfile": modelfile_path,
+                    "output": create_result.stdout
                 }
             else:
+                # Docker commands failed, provide manual instructions
+                host_modelfile_path = f"checkpoints/{TRAINED_MODEL}.modelfile"
                 return {
-                    "status": "error",
-                    "message": result.stderr or "Failed to create model"
+                    "status": "ready",
+                    "message": f"Modelfile created. Docker commands failed. Run from host:",
+                    "modelfile": modelfile_path,
+                    "error": create_result.stderr,
+                    "steps": [
+                        f"./create-model.sh",
+                        f"Or manually: docker cp {host_modelfile_path} training-ollama:/root/.ollama/{TRAINED_MODEL}.modelfile && docker exec training-ollama ollama create {TRAINED_MODEL} -f /root/.ollama/{TRAINED_MODEL}.modelfile"
+                    ]
                 }
-        except subprocess.CalledProcessError as e:
+        except FileNotFoundError:
+            # Docker command not found - provide manual instructions
+            host_modelfile_path = f"checkpoints/{TRAINED_MODEL}.modelfile"
             return {
-                "status": "error",
-                "message": f"Failed to create model: {e}"
+                "status": "ready",
+                "message": f"Modelfile created. Docker not available in container. Run from host:",
+                "modelfile": modelfile_path,
+                "steps": [
+                    f"./create-model.sh",
+                    f"Or manually: docker cp {host_modelfile_path} training-ollama:/root/.ollama/{TRAINED_MODEL}.modelfile && docker exec training-ollama ollama create {TRAINED_MODEL} -f /root/.ollama/{TRAINED_MODEL}.modelfile"
+                ]
+            }
+        except Exception as e:
+            # Other error - provide manual instructions
+            host_modelfile_path = f"checkpoints/{TRAINED_MODEL}.modelfile"
+            return {
+                "status": "ready",
+                "message": f"Modelfile created. Error executing docker: {str(e)}. Run from host:",
+                "modelfile": modelfile_path,
+                "steps": [
+                    f"./create-model.sh",
+                    f"Or manually: docker cp {host_modelfile_path} training-ollama:/root/.ollama/{TRAINED_MODEL}.modelfile && docker exec training-ollama ollama create {TRAINED_MODEL} -f /root/.ollama/{TRAINED_MODEL}.modelfile"
+                ]
             }
         
     except Exception as e:

@@ -14,19 +14,31 @@ def extract_mad_hatter_dialogue(text: str) -> List[Dict[str, str]]:
     """
     examples = []
     
+    # Normalize text - replace newlines with spaces for better matching
+    normalized_text = text.replace('\n', ' ')
+    
     # Pattern to find dialogue attributed to Hatter
-    # Matches: "dialogue" said the Hatter / Hatter said / etc.
+    # Matches various formats: "dialogue" said the Hatter, the Hatter said "dialogue", etc.
     patterns = [
-        r'"([^"]+)"\s+said the Hatter[^.]*\.',
-        r'the Hatter[^.]*said[^.]*"([^"]+)"',
-        r'Hatter[^.]*"([^"]+)"',
+        # "dialogue" said the Hatter
+        r'"([^"]+)"\s+said the Hatter[^.]*?\.',
+        # the Hatter said "dialogue"
+        r'the Hatter[^.]*?said[^.]*?"([^"]+)"',
+        # Hatter said, "dialogue"
+        r'Hatter[^.]*?said[^.]*?,\s*"([^"]+)"',
+        # "dialogue," said the Hatter
+        r'"([^"]+)"[^.]*?said the Hatter',
+        # The Hatter was the first... "dialogue"
+        r'The Hatter[^.]*?"([^"]+)"',
     ]
     
     for pattern in patterns:
-        matches = re.finditer(pattern, text, re.IGNORECASE | re.MULTILINE)
+        matches = re.finditer(pattern, normalized_text, re.IGNORECASE | re.DOTALL)
         for match in matches:
             dialogue = match.group(1).strip()
-            if len(dialogue) > 10:  # Filter very short snippets
+            # Clean up dialogue - remove extra whitespace
+            dialogue = re.sub(r'\s+', ' ', dialogue)
+            if len(dialogue) > 5:  # Include shorter snippets too
                 examples.append({
                     "instruction": "Respond as the Mad Hatter from Alice in Wonderland",
                     "input": "",
@@ -39,20 +51,26 @@ def extract_mad_hatter_dialogue(text: str) -> List[Dict[str, str]]:
     
     if tea_party_start != -1 and tea_party_end != -1:
         tea_party_text = text[tea_party_start:tea_party_end]
+        tea_party_normalized = tea_party_text.replace('\n', ' ')
         
-        # Extract dialogue lines that are clearly Hatter's
-        lines = tea_party_text.split('\n')
-        for i, line in enumerate(lines):
-            if 'Hatter' in line and '"' in line:
-                # Try to extract the quoted dialogue
-                quotes = re.findall(r'"([^"]+)"', line)
-                for quote in quotes:
-                    if len(quote) > 10 and '?' in quote or '!' in quote or len(quote) > 30:
-                        examples.append({
-                            "instruction": "Respond as the Mad Hatter from Alice in Wonderland",
-                            "input": "",
-                            "output": quote
-                        })
+        # Look for Hatter dialogue in tea party
+        hatter_patterns = [
+            r'"([^"]+)"[^.]*?said the Hatter',
+            r'the Hatter[^.]*?"([^"]+)"',
+            r'Hatter[^.]*?said[^.]*?"([^"]+)"',
+        ]
+        
+        for pattern in hatter_patterns:
+            matches = re.finditer(pattern, tea_party_normalized, re.IGNORECASE | re.DOTALL)
+            for match in matches:
+                dialogue = match.group(1).strip()
+                dialogue = re.sub(r'\s+', ' ', dialogue)
+                if len(dialogue) > 5:
+                    examples.append({
+                        "instruction": "Respond as the Mad Hatter from Alice in Wonderland",
+                        "input": "",
+                        "output": dialogue
+                    })
     
     # Remove duplicates while preserving order
     seen = set()

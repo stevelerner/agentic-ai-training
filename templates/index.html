@@ -194,12 +194,6 @@
         <p class="subtitle">Demonstrating agentic AI and model training with Alice in Wonderland</p>
         
         <div class="section">
-            <h2>Model Status</h2>
-            <div id="model-status" class="status">Checking models...</div>
-            <button onclick="checkModels()">Refresh Status</button>
-        </div>
-        
-        <div class="section">
             <h2>Training</h2>
             <p>Extract Mad Hatter dialogue from Alice in Wonderland and create a trained model.</p>
             <div class="button-group">
@@ -210,13 +204,19 @@
         </div>
         
         <div class="section">
+            <h2>Model Status</h2>
+            <div id="model-status" class="status" style="display:none;">Checking models...</div>
+            <button onclick="checkModels()">Check Models</button>
+        </div>
+        
+        <div class="section">
             <h2>Agent Query</h2>
             <p>Test the agent with tool calling. Select a model to use.</p>
             <div class="model-selector">
                 <label><input type="radio" name="model" value="llama3.1" checked> Base Model (llama3.1)</label>
                 <label><input type="radio" name="model" value="mad-hatter"> Trained Model (mad-hatter)</label>
             </div>
-            <input type="text" id="query-input" class="query-box" placeholder="Enter your query (e.g., 'Calculate 25 * 4 and save to result.txt')">
+            <input type="text" id="query-input" class="query-box" placeholder="Enter your query (e.g., 'Ask the Mad Hatter what time it is, then calculate 6 o'clock in minutes')">
             <button onclick="runQuery()">Run Query</button>
             <div id="query-response" class="response" style="display:none;"></div>
         </div>
@@ -233,6 +233,7 @@
     <script>
         async function checkModels() {
             const statusDiv = document.getElementById('model-status');
+            statusDiv.style.display = 'block';
             statusDiv.textContent = 'Checking...';
             
             try {
@@ -286,7 +287,7 @@
         async function createTrainedModel() {
             const statusDiv = document.getElementById('training-status');
             statusDiv.style.display = 'block';
-            statusDiv.textContent = 'Creating trained model... (this may take a minute)';
+            statusDiv.textContent = 'Creating modelfile...';
             statusDiv.className = 'status';
             
             try {
@@ -294,8 +295,27 @@
                 const data = await response.json();
                 
                 if (data.status === 'success') {
-                    statusDiv.textContent = data.message;
+                    let html = '<strong>' + data.message + '</strong>';
+                    if (data.output) {
+                        html += '<br><br><pre style="background:#f8f9fa;padding:10px;border-radius:4px;overflow-x:auto;font-size:12px;">' + data.output + '</pre>';
+                    }
+                    statusDiv.innerHTML = html;
                     statusDiv.className = 'status success';
+                    checkModels();
+                } else if (data.status === 'ready') {
+                    let html = '<strong>Modelfile created!</strong><br><br>';
+                    html += data.message + '<br><br>';
+                    if (data.error) {
+                        html += '<span style="color:#721c24;">Error: ' + data.error + '</span><br><br>';
+                    }
+                    if (data.steps) {
+                        html += 'Run these commands from your host machine:<br><br>';
+                        data.steps.forEach(step => {
+                            html += '<code style="display:block;margin:5px 0;padding:5px;background:#f8f9fa;border-radius:3px;">' + step + '</code>';
+                        });
+                    }
+                    statusDiv.innerHTML = html;
+                    statusDiv.className = 'status';
                     checkModels();
                 } else {
                     statusDiv.textContent = 'Error: ' + data.message;
@@ -389,8 +409,7 @@
             }
         }
         
-        // Check models on load
-        checkModels();
+        // Don't check models on load - user can click button when needed
     </script>
 </body>
 </html>

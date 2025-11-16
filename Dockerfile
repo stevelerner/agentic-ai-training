@@ -5,9 +5,12 @@ WORKDIR /app
 # Clean apt cache
 RUN apt-get update && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
+# Install Python dependencies and docker CLI
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt && \
+    apt-get update && \
+    apt-get install -y docker.io && \
+    rm -rf /var/lib/apt/lists/*
 
 # Copy application files
 COPY server.py .

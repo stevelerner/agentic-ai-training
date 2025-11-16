@@ -28,6 +28,7 @@ services:
       - ./training_data:/app/training_data
       - ./checkpoints:/app/checkpoints
       - ./alice_in_wonderland.txt:/app/alice_in_wonderland.txt:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     depends_on:
       - ollama
     environment:
