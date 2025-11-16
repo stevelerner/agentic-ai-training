@@ -17,28 +17,38 @@ def extract_mad_hatter_dialogue(text: str) -> List[Dict[str, str]]:
     # Normalize text - replace newlines with spaces for better matching
     normalized_text = text.replace('\n', ' ')
     
+    # Unicode curly quote characters used in the text
+    left_quote = '\u201c'  # "
+    right_quote = '\u201d'  # "
+    
     # Pattern to find dialogue attributed to Hatter
-    # Matches various formats: "dialogue" said the Hatter, the Hatter said "dialogue", etc.
+    # Text uses curly quotes: "dialogue" said the Hatter
+    # Match: opening curly quote, dialogue content, closing curly quote, then "said the Hatter"
     patterns = [
-        # "dialogue" said the Hatter
-        r'"([^"]+)"\s+said the Hatter[^.]*?\.',
-        # the Hatter said "dialogue"
-        r'the Hatter[^.]*?said[^.]*?"([^"]+)"',
+        # "dialogue" said the Hatter (curly quotes - most common format)
+        f'{re.escape(left_quote)}(.*?){re.escape(right_quote)}\\s+said the Hatter',
+        # "dialogue," said the Hatter (with comma)
+        f'{re.escape(left_quote)}(.*?){re.escape(right_quote)},\\s+said the Hatter',
+        # The Hatter said "dialogue"
+        f'the Hatter[^.]*?said[^.]*?{re.escape(left_quote)}(.*?){re.escape(right_quote)}',
         # Hatter said, "dialogue"
-        r'Hatter[^.]*?said[^.]*?,\s*"([^"]+)"',
-        # "dialogue," said the Hatter
-        r'"([^"]+)"[^.]*?said the Hatter',
-        # The Hatter was the first... "dialogue"
-        r'The Hatter[^.]*?"([^"]+)"',
+        f'Hatter[^.]*?said[^.]*?,\\s*{re.escape(left_quote)}(.*?){re.escape(right_quote)}',
+        # The Hatter was... "dialogue"
+        f'The Hatter[^.]*?{re.escape(left_quote)}(.*?){re.escape(right_quote)}',
+        # Hatter... but all he said was "dialogue"
+        f'Hatter[^.]*?said[^.]*?was[^.]*?{re.escape(left_quote)}(.*?){re.escape(right_quote)}',
+        # Also try straight quotes as fallback
+        r'"([^"]+)"\s+said the Hatter',
     ]
     
     for pattern in patterns:
         matches = re.finditer(pattern, normalized_text, re.IGNORECASE | re.DOTALL)
         for match in matches:
             dialogue = match.group(1).strip()
-            # Clean up dialogue - remove extra whitespace
+            # Clean up dialogue - remove extra whitespace and newlines
             dialogue = re.sub(r'\s+', ' ', dialogue)
-            if len(dialogue) > 5:  # Include shorter snippets too
+            # Filter out very short or empty dialogue
+            if len(dialogue) > 5:
                 examples.append({
                     "instruction": "Respond as the Mad Hatter from Alice in Wonderland",
                     "input": "",
@@ -53,11 +63,12 @@ def extract_mad_hatter_dialogue(text: str) -> List[Dict[str, str]]:
         tea_party_text = text[tea_party_start:tea_party_end]
         tea_party_normalized = tea_party_text.replace('\n', ' ')
         
-        # Look for Hatter dialogue in tea party
+        # Look for Hatter dialogue in tea party with curly quotes
         hatter_patterns = [
-            r'"([^"]+)"[^.]*?said the Hatter',
-            r'the Hatter[^.]*?"([^"]+)"',
-            r'Hatter[^.]*?said[^.]*?"([^"]+)"',
+            f'{re.escape(left_quote)}(.*?){re.escape(right_quote)}\\s+said the Hatter',
+            f'{re.escape(left_quote)}(.*?){re.escape(right_quote)},\\s+said the Hatter',
+            f'the Hatter[^.]*?{re.escape(left_quote)}(.*?){re.escape(right_quote)}',
+            f'Hatter[^.]*?said[^.]*?{re.escape(left_quote)}(.*?){re.escape(right_quote)}',
         ]
         
         for pattern in hatter_patterns:
