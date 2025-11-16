@@ -16,10 +16,19 @@ A minimal demonstration of agentic AI and model training using Alice in Wonderla
 
 ## Architecture
 
+**Docker Setup (Default):**
 - **Ollama container**: LLM inference (base and trained models)
-  - Metal GPU acceleration on Apple Silicon (if enabled in Docker Desktop)
-  - Falls back to CPU if GPU not available
+  - Runs on CPU only (Docker Desktop on macOS doesn't support GPU passthrough)
+  - Slower but fully containerized
 - **Web container**: Agent logic, training pipeline, web UI
+- **Volumes**: Training data, checkpoints, outputs
+
+**Native Ollama Setup (Metal GPU):**
+- **Native Ollama**: Runs directly on macOS
+  - Uses Metal GPU on Apple Silicon for faster inference
+  - Accessible via `host.docker.internal:11434`
+- **Web container**: Agent logic, training pipeline, web UI
+  - Connects to native Ollama instead of Docker Ollama
 - **Volumes**: Training data, checkpoints, outputs
 
 ## Quick Start
@@ -27,9 +36,35 @@ A minimal demonstration of agentic AI and model training using Alice in Wonderla
 **Prerequisites:**
 - Docker Desktop running
 - 8GB+ RAM available
-- macOS with Apple Silicon (for Metal GPU acceleration)
+- macOS with Apple Silicon (for Metal GPU acceleration - optional)
 
-**Steps:**
+**Option 1: Quick Start with Docker Ollama (CPU only)**
+
+```bash
+./run.sh
+```
+
+This will:
+- Start Ollama in Docker (CPU only - slower)
+- Start the web UI
+- Pull the base model if needed
+- Open http://localhost:8000
+
+**Option 2: Native Ollama with Metal GPU (Recommended for Apple Silicon)**
+
+For faster inference with Metal GPU acceleration:
+
+```bash
+./run-with-native-ollama.sh
+```
+
+This will:
+- Start Ollama natively on macOS (Metal GPU enabled)
+- Start only the web container in Docker
+- Connect web container to native Ollama
+- Provide significantly faster inference
+
+**Manual Setup:**
 
 1. Start containers:
 ```bash
@@ -47,11 +82,12 @@ http://localhost:8000
 ```
 
 4. In the web UI:
+   - Click "Check Models" to verify models are available
+   - Click "Check GPU/Metal" to see GPU status
    - Click "Prepare Training Data" to extract Mad Hatter dialogue
    - Click "Create Trained Model" to create the modelfile
-   - Run the helper script from host: `./create-model.sh`
-   - Use "Agent Query" to test tool calling
    - Use "Model Comparison" to see base vs trained differences
+   - Use "Agent Query" to test tool calling with suggested questions
 
 ## Agentic AI vs LLM Chat
 
@@ -100,14 +136,25 @@ http://localhost:8000
 
 ## Files
 
-- `server.py`: Web server, agent logic, training API
+**Core Files:**
+- `server.py`: Web server, agent logic, training API, GPU detection
 - `training.py`: Model creation and training functions
 - `data_processor.py`: Extract character dialogue from text
 - `docker-compose.yml`: Container orchestration
 - `Dockerfile`: Web service container
-- `templates/index.html`: Web UI
-- `alice_in_wonderland.txt`: Source text for training
+- `templates/index.html`: Web UI with suggested questions and tool usage display
+
+**Scripts:**
+- `run.sh`: Quick start with Docker Ollama (CPU only)
+- `run-with-native-ollama.sh`: Start with native Ollama (Metal GPU)
 - `create-model.sh`: Helper script to create trained model from modelfile
+- `cleanup.sh`: Clean up containers and volumes
+
+**Data:**
+- `alice_in_wonderland.txt`: Source text for training
+- `training_data/`: Extracted training examples (JSONL format)
+- `checkpoints/`: Generated modelfiles
+- `outputs/`: Agent-generated files
 
 ## Example Queries
 
@@ -139,64 +186,49 @@ Base model (llama3.1) responds normally.
 
 ## Metal GPU Support
 
-**Apple Silicon (M1/M2/M3):**
-- Metal GPU acceleration may be available depending on Docker Desktop configuration
-- Ollama will attempt to use Metal for faster inference
-- Falls back to CPU if Metal unavailable in container
-- Configured for `linux/arm64` platform in docker-compose.yml
-- `OLLAMA_NUM_GPU=1` environment variable is set
-
-**Intel Mac:**
-- Remove `platform: linux/arm64` from docker-compose.yml if needed
-- Will run on CPU (slower but functional)
-
-**Verifying GPU Usage:**
-```bash
-# Check if Metal/GPU is detected
-docker logs training-ollama | grep -i "device\|gpu\|metal"
-
-# Check current model status
-docker exec training-ollama ollama ps
-
-# Look for "device=CPU" vs "device=GPU" in logs
-docker logs training-ollama | grep "device="
-```
-
-**Note:** Metal GPU access in Docker containers on macOS is **not available**. Docker Desktop on macOS does not support GPU passthrough. Ollama will always run on CPU inside Docker containers.
+**Important:** Docker Desktop on macOS does **not support GPU passthrough**. Ollama running in Docker containers will always use CPU, even on Apple Silicon.
 
 **To Enable Metal GPU:**
 
-Run Ollama natively on macOS (outside Docker) for Metal GPU acceleration:
+Use the native Ollama setup for Metal GPU acceleration on Apple Silicon:
 
-1. **Install Ollama natively:**
+1. **Install Ollama natively** (if not already installed):
    ```bash
    brew install ollama
    # OR download from https://ollama.com/download
    ```
 
-2. **Start Ollama natively:**
-   ```bash
-   ollama serve
-   ```
-
-3. **Use the native Ollama script:**
+2. **Run with native Ollama:**
    ```bash
    ./run-with-native-ollama.sh
    ```
 
 This script:
-- Starts Ollama natively (Metal GPU enabled)
+- Starts Ollama natively on macOS (Metal GPU enabled automatically)
 - Runs only the web container in Docker
-- Connects the web container to native Ollama via `host.docker.internal`
+- Connects the web container to native Ollama via `host.docker.internal:11434`
+- Provides significantly faster inference (2-5x speedup on Apple Silicon)
 
-**Verifying Metal GPU:**
+**Verifying GPU Usage:**
+
+In the web UI:
+- Click "Check GPU/Metal" button to see current GPU status
+- Shows "Metal GPU (native Ollama)" when using native Ollama
+- Shows "CPU (Docker container)" when using Docker Ollama
+
+From command line:
 ```bash
 # Check if Metal is being used (native Ollama)
 ollama ps
 
 # Monitor GPU usage
 # Open Activity Monitor > Window > GPU History
+# You should see GPU activity when running queries
 ```
+
+**Performance:**
+- **Docker Ollama (CPU)**: ~5-15 seconds per query
+- **Native Ollama (Metal GPU)**: ~2-5 seconds per query (Apple Silicon)
 
 The demo works on CPU, but Metal GPU provides significantly faster inference.
 
@@ -230,20 +262,33 @@ docker exec training-ollama ollama pull llama3.1
 - Check logs: `docker logs training-ollama`
 
 **Metal GPU not working:**
-- Ensure Docker Desktop is using Apple Silicon (arm64)
-- Check Docker Desktop settings for GPU support
-- Verify platform: `docker compose config | grep platform`
-- Ollama will fall back to CPU if Metal unavailable
+- Docker Ollama always runs on CPU (Docker Desktop limitation)
+- Use `./run-with-native-ollama.sh` for Metal GPU support
+- Verify native Ollama is running: `ollama ps`
+- Check GPU status in web UI: Click "Check GPU/Metal"
+- Monitor GPU usage: Activity Monitor > Window > GPU History
 
 ## Cleanup
 
-Stop containers:
+**Stop Docker setup:**
 ```bash
 docker compose down
 ```
 
-Remove volumes (deletes models):
+**Stop native Ollama setup:**
+```bash
+docker compose stop web
+docker compose rm -f web
+ollama stop  # or kill the Ollama process
+```
+
+**Remove volumes (deletes models):**
 ```bash
 docker compose down -v
+```
+
+**Full cleanup (including images):**
+```bash
+./cleanup.sh
 ```
 
