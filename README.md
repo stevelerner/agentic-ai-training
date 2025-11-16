@@ -86,6 +86,8 @@ http://localhost:8000
    - Click "Check GPU/Metal" to see GPU status
    - Click "Prepare Training Data" to extract Mad Hatter dialogue
    - Click "Create Trained Model" to create the modelfile
+   - **For Docker Ollama**: Run `./create-model.sh` from host
+   - **For Native Ollama**: Run `./create-model-native.sh` from host
    - Use "Model Comparison" to see base vs trained differences
    - Use "Agent Query" to test tool calling with suggested questions
 
@@ -147,7 +149,8 @@ http://localhost:8000
 **Scripts:**
 - `run.sh`: Quick start with Docker Ollama (CPU only)
 - `run-with-native-ollama.sh`: Start with native Ollama (Metal GPU)
-- `create-model.sh`: Helper script to create trained model from modelfile
+- `create-model.sh`: Create trained model in Docker Ollama (run from host)
+- `create-model-native.sh`: Create trained model in native Ollama (run from host)
 - `cleanup.sh`: Clean up containers and volumes
 
 **Data:**
@@ -257,9 +260,16 @@ docker exec training-ollama ollama pull llama3.1
 - Verify training data was prepared
 - Check container logs: `docker logs training-web`
 
+**Model not found in native Ollama:**
+- If you created the model in Docker Ollama, you need to create it in native Ollama too
+- Run `./create-model-native.sh` from the host machine
+- Verify: `ollama list` should show `mad-hatter`
+
 **Agent not responding:**
-- Verify Ollama is running: `docker ps | grep ollama`
-- Check logs: `docker logs training-ollama`
+- **Docker Ollama**: Verify container is running: `docker ps | grep ollama`
+- **Docker Ollama**: Check logs: `docker logs training-ollama`
+- **Native Ollama**: Verify Ollama is running: `ollama ps` or check if port 11434 is accessible
+- **Native Ollama**: Check if web container can reach it: `docker exec training-web curl -s http://host.docker.internal:11434/api/tags`
 
 **Metal GPU not working:**
 - Docker Ollama always runs on CPU (Docker Desktop limitation)

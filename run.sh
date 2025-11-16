@@ -1,7 +1,8 @@
 #!/bin/bash
 # Quick start script for training demo
 
-set -e
+# Don't exit on error for commands that might fail gracefully
+set +e
 
 echo "=========================================="
 echo "AI Training Demo - Quick Start"
@@ -29,7 +30,10 @@ fi
 # Start containers
 echo ""
 echo "Starting Docker containers..."
-docker compose up -d --build
+if ! docker compose up -d --build; then
+    echo "Error: Failed to start containers"
+    exit 1
+fi
 
 # Wait for Ollama to be ready
 echo "Waiting for Ollama to start..."
@@ -37,9 +41,14 @@ sleep 5
 
 # Check if base model exists
 echo "Checking for base model..."
-if ! docker exec training-ollama ollama list | grep -q "llama3.1"; then
+# Wait a bit more for Ollama to be fully ready
+sleep 2
+if ! docker exec training-ollama ollama list 2>/dev/null | grep -q "llama3.1"; then
     echo "Pulling base model (this may take a few minutes)..."
-    docker exec training-ollama ollama pull llama3.1
+    if ! docker exec training-ollama ollama pull llama3.1; then
+        echo "Warning: Failed to pull model. You can pull it manually later with:"
+        echo "  docker exec training-ollama ollama pull llama3.1"
+    fi
 else
     echo "Base model already available"
 fi
