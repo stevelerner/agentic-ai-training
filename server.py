@@ -119,7 +119,27 @@ class TrainingAgent:
         """Main agent loop with ReAct pattern."""
         model = model or self.model
         
-        system_prompt = """You are a helpful AI agent with access to tools.
+        # For trained character models, don't send system message - let model's system prompt work
+        # For base model, use full agent prompt
+        if model == TRAINED_MODEL:
+            # For character model, add tool instructions to user message instead of system
+            # This preserves the model's character-defining system prompt
+            enhanced_query = f"""You have access to these tools:
+- calculate(expression): Evaluate math expressions  
+- save_file(filename, content): Save content to file
+
+When you need to use a tool, respond with ONLY this JSON format:
+{{"tool": "tool_name", "arguments": {{"arg1": "value1"}}}}
+
+When you have enough information, provide your final answer without JSON.
+
+User query: {user_query}"""
+            messages = [
+                {"role": "user", "content": enhanced_query}
+            ]
+        else:
+            # Full agent prompt for base model
+            system_prompt = """You are a helpful AI agent with access to tools.
 
 Available tools:
 - calculate(expression): Evaluate math expressions
@@ -132,10 +152,10 @@ When you have enough information, provide your final answer without JSON.
 
 Think step by step and use tools when needed."""
 
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_query}
-        ]
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_query}
+            ]
         
         steps = []
         
