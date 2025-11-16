@@ -91,12 +91,13 @@ http://localhost:8000
 **Step 2: Model Creation**
 - Creates Ollama Modelfile with system prompt
 - Defines Mad Hatter character traits (time-obsessed, absurd, riddles)
-- Uses base model (llama3.1) as foundation
+- Uses base Ollama model (llama3.1) as foundation
 - Applies character-specific behavior via system prompt
 
 **Step 3: Training Result**
-- New model "mad-hatter" available in Ollama
-- Responds in character style when queried
+- New Ollama model "mad-hatter" created and available in Ollama
+- Both base and trained models are Ollama models
+- Trained model responds in character style when queried
 - Shows before/after difference vs base model
 - Demonstrates how training changes model behavior
 
@@ -147,13 +148,13 @@ Training data is extracted from:
 
 ## Model Comparison
 
-The trained model (mad-hatter) should:
-- Reference time/tea time obsessively
-- Speak in absurd, nonsensical ways
-- Ask riddles
-- Show philosophical but illogical reasoning
-
-Base model (llama3.1) responds normally.
+Both models are Ollama models:
+- **Base model (llama3.1)**: Standard Ollama model, responds normally
+- **Trained model (mad-hatter)**: Custom Ollama model created via Modelfile, should:
+  - Reference time/tea time obsessively
+  - Speak in absurd, nonsensical ways
+  - Ask riddles
+  - Show philosophical but illogical reasoning
 
 ## Limitations
 
