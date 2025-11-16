@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Training Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+        }
+        
+        .section {
+            margin-bottom: 40px;
+            padding: 20px;
+            background: #fafafa;
+            border-radius: 6px;
+            border-left: 4px solid #4a90e2;
+        }
+        
+        .section h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+        
+        .section p {
+            color: #555;
+            margin-bottom: 15px;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            padding: 10px 20px;
+            background: #4a90e2;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        button:hover {
+            background: #357abd;
+        }
+        
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        button.secondary {
+            background: #28a745;
+        }
+        
+        button.secondary:hover {
+            background: #218838;
+        }
+        
+        .status {
+            padding: 10px;
+            background: #e9ecef;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            font-family: monospace;
+            font-size: 13px;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .query-box {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+        
+        .model-selector {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .model-selector label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+        }
+        
+        .response {
+            margin-top: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+        
+        .response h3 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+        
+        .response pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        .comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .comparison-item {
+            padding: 15px;
+            background: white;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+        
+        .comparison-item h4 {
+            margin-bottom: 10px;
+            color: #4a90e2;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #4a90e2;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>AI Training Demo</h1>
+        <p class="subtitle">Demonstrating agentic AI and model training with Alice in Wonderland</p>
+        
+        <div class="section">
+            <h2>Model Status</h2>
+            <div id="model-status" class="status">Checking models...</div>
+            <button onclick="checkModels()">Refresh Status</button>
+        </div>
+        
+        <div class="section">
+            <h2>Training</h2>
+            <p>Extract Mad Hatter dialogue from Alice in Wonderland and create a trained model.</p>
+            <div class="button-group">
+                <button onclick="prepareTrainingData()">1. Prepare Training Data</button>
+                <button onclick="createTrainedModel()" class="secondary">2. Create Trained Model</button>
+            </div>
+            <div id="training-status" class="status" style="display:none;"></div>
+        </div>
+        
+        <div class="section">
+            <h2>Agent Query</h2>
+            <p>Test the agent with tool calling. Select a model to use.</p>
+            <div class="model-selector">
+                <label><input type="radio" name="model" value="llama3.1" checked> Base Model (llama3.1)</label>
+                <label><input type="radio" name="model" value="mad-hatter"> Trained Model (mad-hatter)</label>
+            </div>
+            <input type="text" id="query-input" class="query-box" placeholder="Enter your query (e.g., 'Calculate 25 * 4 and save to result.txt')">
+            <button onclick="runQuery()">Run Query</button>
+            <div id="query-response" class="response" style="display:none;"></div>
+        </div>
+        
+        <div class="section">
+            <h2>Model Comparison</h2>
+            <p>Compare responses from base and trained models side-by-side.</p>
+            <input type="text" id="compare-input" class="query-box" placeholder="Enter a question (e.g., 'What time is it?')">
+            <button onclick="compareModels()">Compare Models</button>
+            <div id="compare-response" style="display:none;"></div>
+        </div>
+    </div>
+    
+    <script>
+        async function checkModels() {
+            const statusDiv = document.getElementById('model-status');
+            statusDiv.textContent = 'Checking...';
+            
+            try {
+                const response = await fetch('/api/models');
+                const data = await response.json();
+                
+                let status = 'Models: ';
+                if (data.base) {
+                    status += 'Base (llama3.1) available. ';
+                } else {
+                    status += 'Base model not found. ';
+                }
+                
+                if (data.trained) {
+                    status += 'Trained (mad-hatter) available.';
+                } else {
+                    status += 'Trained model not created yet.';
+                }
+                
+                statusDiv.textContent = status;
+                statusDiv.className = 'status ' + (data.base && data.trained ? 'success' : '');
+            } catch (error) {
+                statusDiv.textContent = 'Error checking models: ' + error.message;
+                statusDiv.className = 'status error';
+            }
+        }
+        
+        async function prepareTrainingData() {
+            const statusDiv = document.getElementById('training-status');
+            statusDiv.style.display = 'block';
+            statusDiv.textContent = 'Preparing training data...';
+            statusDiv.className = 'status';
+            
+            try {
+                const response = await fetch('/api/training/prepare', { method: 'POST' });
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    statusDiv.textContent = `Success! Extracted ${data.examples} training examples.`;
+                    statusDiv.className = 'status success';
+                } else {
+                    statusDiv.textContent = 'Error: ' + data.message;
+                    statusDiv.className = 'status error';
+                }
+            } catch (error) {
+                statusDiv.textContent = 'Error: ' + error.message;
+                statusDiv.className = 'status error';
+            }
+        }
+        
+        async function createTrainedModel() {
+            const statusDiv = document.getElementById('training-status');
+            statusDiv.style.display = 'block';
+            statusDiv.textContent = 'Creating trained model... (this may take a minute)';
+            statusDiv.className = 'status';
+            
+            try {
+                const response = await fetch('/api/training/create', { method: 'POST' });
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    statusDiv.textContent = data.message;
+                    statusDiv.className = 'status success';
+                    checkModels();
+                } else {
+                    statusDiv.textContent = 'Error: ' + data.message;
+                    statusDiv.className = 'status error';
+                }
+            } catch (error) {
+                statusDiv.textContent = 'Error: ' + error.message;
+                statusDiv.className = 'status error';
+            }
+        }
+        
+        async function runQuery() {
+            const query = document.getElementById('query-input').value;
+            const model = document.querySelector('input[name="model"]:checked').value;
+            const responseDiv = document.getElementById('query-response');
+            
+            if (!query) {
+                alert('Please enter a query');
+                return;
+            }
+            
+            responseDiv.style.display = 'block';
+            responseDiv.innerHTML = '<div class="loading"></div> Running query...';
+            
+            try {
+                const response = await fetch('/api/query', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query, model })
+                });
+                
+                const data = await response.json();
+                
+                let html = `<h3>Response (${data.model})</h3>`;
+                html += `<pre>${data.final_answer}</pre>`;
+                
+                if (data.steps && data.steps.length > 0) {
+                    html += '<h3>Steps:</h3>';
+                    data.steps.forEach(step => {
+                        html += `<p><strong>Step ${step.iteration}:</strong> `;
+                        if (step.type === 'tool_call') {
+                            html += `Called ${step.tool} with ${JSON.stringify(step.arguments)}`;
+                        } else {
+                            html += 'Final answer';
+                        }
+                        html += '</p>';
+                    });
+                }
+                
+                responseDiv.innerHTML = html;
+            } catch (error) {
+                responseDiv.innerHTML = '<div class="status error">Error: ' + error.message + '</div>';
+            }
+        }
+        
+        async function compareModels() {
+            const query = document.getElementById('compare-input').value;
+            const responseDiv = document.getElementById('compare-response');
+            
+            if (!query) {
+                alert('Please enter a query');
+                return;
+            }
+            
+            responseDiv.style.display = 'block';
+            responseDiv.innerHTML = '<div class="loading"></div> Comparing models...';
+            
+            try {
+                const response = await fetch('/api/compare', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query })
+                });
+                
+                const data = await response.json();
+                
+                let html = '<div class="comparison">';
+                html += `<div class="comparison-item">
+                    <h4>Base Model (${data.base_model.model})</h4>
+                    <pre>${data.base_model.response}</pre>
+                </div>`;
+                html += `<div class="comparison-item">
+                    <h4>Trained Model (${data.trained_model.model})</h4>
+                    <pre>${data.trained_model.response}</pre>
+                </div>`;
+                html += '</div>';
+                
+                responseDiv.innerHTML = html;
+            } catch (error) {
+                responseDiv.innerHTML = '<div class="status error">Error: ' + error.message + '</div>';
+            }
+        }
+        
+        // Check models on load
+        checkModels();
+    </script>
+</body>
+</html>
+
