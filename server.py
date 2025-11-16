@@ -212,9 +212,11 @@ def check_models() -> Dict[str, bool]:
         if response.status_code == 200:
             models = response.json().get("models", [])
             model_names = [m.get("name", "") for m in models]
+            # Strip :latest tag for comparison (Ollama returns names like "llama3.1:latest")
+            model_names_no_tag = [name.split(":")[0] for name in model_names]
             return {
-                "base": BASE_MODEL in model_names,
-                "trained": TRAINED_MODEL in model_names,
+                "base": BASE_MODEL in model_names_no_tag,
+                "trained": TRAINED_MODEL in model_names_no_tag,
                 "all_models": model_names
             }
     except:
