@@ -17,8 +17,8 @@ A minimal demonstration of agentic AI and model training using Alice in Wonderla
 ## Architecture
 
 - **Ollama container**: LLM inference (base and trained models)
-  - Uses Metal GPU acceleration on Apple Silicon (automatic)
-  - Faster inference with GPU support
+  - Metal GPU acceleration on Apple Silicon (if enabled in Docker Desktop)
+  - Falls back to CPU if GPU not available
 - **Web container**: Agent logic, training pipeline, web UI
 - **Volumes**: Training data, checkpoints, outputs
 
@@ -140,22 +140,29 @@ Base model (llama3.1) responds normally.
 ## Metal GPU Support
 
 **Apple Silicon (M1/M2/M3):**
-- Metal GPU acceleration is automatically enabled
-- Ollama detects and uses Metal for faster inference
-- No additional configuration required
-- Significantly faster than CPU-only execution
+- Metal GPU acceleration may be available depending on Docker Desktop configuration
+- Ollama will attempt to use Metal for faster inference
+- Falls back to CPU if Metal unavailable in container
 - Configured for `linux/arm64` platform in docker-compose.yml
+- `OLLAMA_NUM_GPU=1` environment variable is set
 
 **Intel Mac:**
 - Remove `platform: linux/arm64` from docker-compose.yml if needed
 - Will run on CPU (slower but functional)
 
-**Verifying Metal Usage:**
+**Verifying GPU Usage:**
 ```bash
-docker logs training-ollama | grep -i metal
+# Check if Metal/GPU is detected
+docker logs training-ollama | grep -i "device\|gpu\|metal"
+
+# Check current model status
+docker exec training-ollama ollama ps
+
+# Look for "device=CPU" vs "device=GPU" in logs
+docker logs training-ollama | grep "device="
 ```
 
-Ollama will automatically use Metal when available on macOS.
+**Note:** Metal GPU access in Docker containers on macOS is limited. Ollama may fall back to CPU even on Apple Silicon. The demo works on CPU, but will be slower. For native Metal support, run Ollama directly on macOS (outside Docker).
 
 ## Limitations
 

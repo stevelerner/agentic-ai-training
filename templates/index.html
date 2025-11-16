@@ -154,8 +154,8 @@
         }
         
         .comparison {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
+            display: flex;
+            flex-direction: column;
             gap: 20px;
             margin-top: 20px;
         }
@@ -165,6 +165,7 @@
             background: white;
             border-radius: 4px;
             border: 1px solid #ddd;
+            width: 100%;
         }
         
         .comparison-item h4 {
@@ -206,7 +207,19 @@
         <div class="section">
             <h2>Model Status</h2>
             <div id="model-status" class="status" style="display:none;">Checking models...</div>
-            <button onclick="checkModels()">Check Models</button>
+            <div id="gpu-status" class="status" style="display:none;"></div>
+            <div class="button-group">
+                <button onclick="checkModels()">Check Models</button>
+                <button onclick="checkGPU()">Check GPU/Metal</button>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>Model Comparison</h2>
+            <p>Compare responses from base and trained models.</p>
+            <input type="text" id="compare-input" class="query-box" placeholder="Enter a question (e.g., 'What time is it?')">
+            <button onclick="compareModels()">Compare Models</button>
+            <div id="compare-response" style="display:none;"></div>
         </div>
         
         <div class="section">
@@ -217,16 +230,18 @@
                 <label><input type="radio" name="model" value="mad-hatter"> Trained Model (mad-hatter)</label>
             </div>
             <input type="text" id="query-input" class="query-box" placeholder="Enter your query (e.g., 'Ask the Mad Hatter what time it is, then calculate 6 o'clock in minutes')">
+            <div style="margin: 10px 0; font-size: 13px; color: #666;">
+                <strong>Suggested questions for Mad Hatter:</strong>
+                <div style="margin-top: 5px; display: flex; flex-wrap: wrap; gap: 5px;">
+                    <button onclick="setQuery('Why is a raven like a writing-desk?')" style="padding: 5px 10px; font-size: 12px; background: #e9ecef; color: #333; border: 1px solid #ddd;">Why is a raven like a writing-desk?</button>
+                    <button onclick="setQuery('What time is it? Calculate 6 o\\'clock in minutes and save to time.txt')" style="padding: 5px 10px; font-size: 12px; background: #e9ecef; color: #333; border: 1px solid #ddd;">Time + Calculate + Save</button>
+                    <button onclick="setQuery('Tell me about tea parties, then calculate how many cups of tea in 12 o\\'clock')" style="padding: 5px 10px; font-size: 12px; background: #e9ecef; color: #333; border: 1px solid #ddd;">Tea parties + Calculate</button>
+                    <button onclick="setQuery('What\\'s the difference between saying what you mean and meaning what you say? Calculate 2 + 2')" style="padding: 5px 10px; font-size: 12px; background: #e9ecef; color: #333; border: 1px solid #ddd;">Riddle + Calculate</button>
+                    <button onclick="setQuery('How many minutes until tea time? Calculate 6 * 60 and save the result')" style="padding: 5px 10px; font-size: 12px; background: #e9ecef; color: #333; border: 1px solid #ddd;">Tea time + Math</button>
+                </div>
+            </div>
             <button onclick="runQuery()">Run Query</button>
             <div id="query-response" class="response" style="display:none;"></div>
-        </div>
-        
-        <div class="section">
-            <h2>Model Comparison</h2>
-            <p>Compare responses from base and trained models side-by-side.</p>
-            <input type="text" id="compare-input" class="query-box" placeholder="Enter a question (e.g., 'What time is it?')">
-            <button onclick="compareModels()">Compare Models</button>
-            <div id="compare-response" style="display:none;"></div>
         </div>
     </div>
     
@@ -257,6 +272,32 @@
                 statusDiv.className = 'status ' + (data.base && data.trained ? 'success' : '');
             } catch (error) {
                 statusDiv.textContent = 'Error checking models: ' + error.message;
+                statusDiv.className = 'status error';
+            }
+        }
+        
+        async function checkGPU() {
+            const statusDiv = document.getElementById('gpu-status');
+            statusDiv.style.display = 'block';
+            statusDiv.textContent = 'Checking GPU/Metal status...';
+            statusDiv.className = 'status';
+            
+            try {
+                const response = await fetch('/api/gpu');
+                const data = await response.json();
+                
+                let status = 'GPU/Metal: ';
+                if (data.gpu_available) {
+                    status += data.device + ' (GPU acceleration active)';
+                    statusDiv.className = 'status success';
+                } else {
+                    status += data.device + ' (running on CPU)';
+                    statusDiv.className = 'status';
+                }
+                
+                statusDiv.textContent = status;
+            } catch (error) {
+                statusDiv.textContent = 'Error checking GPU: ' + error.message;
                 statusDiv.className = 'status error';
             }
         }
@@ -327,6 +368,10 @@
             }
         }
         
+        function setQuery(text) {
+            document.getElementById('query-input').value = text;
+        }
+        
         async function runQuery() {
             const query = document.getElementById('query-input').value;
             const model = document.querySelector('input[name="model"]:checked').value;
@@ -349,20 +394,29 @@
                 
                 const data = await response.json();
                 
-                let html = `<h3>Response (${data.model})</h3>`;
+                let html = `<h3>Final Response (${data.model})</h3>`;
                 html += `<pre>${data.final_answer}</pre>`;
                 
                 if (data.steps && data.steps.length > 0) {
-                    html += '<h3>Steps:</h3>';
-                    data.steps.forEach(step => {
-                        html += `<p><strong>Step ${step.iteration}:</strong> `;
+                    html += '<h3 style="margin-top: 20px;">Agent Steps (Tool Usage):</h3>';
+                    html += '<div style="background: #f8f9fa; padding: 15px; border-radius: 4px; margin-top: 10px;">';
+                    
+                    data.steps.forEach((step, idx) => {
                         if (step.type === 'tool_call') {
-                            html += `Called ${step.tool} with ${JSON.stringify(step.arguments)}`;
+                            html += `<div style="margin-bottom: 15px; padding: 10px; background: white; border-left: 4px solid #4a90e2; border-radius: 3px;">`;
+                            html += `<div style="font-weight: bold; color: #4a90e2; margin-bottom: 5px;">Step ${step.iteration}: Using Tool - ${step.tool}</div>`;
+                            html += `<div style="font-size: 13px; color: #666; margin-bottom: 5px;"><strong>Arguments:</strong> <code>${JSON.stringify(step.arguments, null, 2)}</code></div>`;
+                            html += `<div style="font-size: 13px; color: #28a745;"><strong>Result:</strong> <code>${JSON.stringify(step.result, null, 2)}</code></div>`;
+                            html += `</div>`;
                         } else {
-                            html += 'Final answer';
+                            html += `<div style="margin-bottom: 15px; padding: 10px; background: white; border-left: 4px solid #28a745; border-radius: 3px;">`;
+                            html += `<div style="font-weight: bold; color: #28a745;">Step ${step.iteration}: Final Answer</div>`;
+                            html += `<div style="font-size: 13px; color: #666; margin-top: 5px;">Agent completed task and provided final response above.</div>`;
+                            html += `</div>`;
                         }
-                        html += '</p>';
                     });
+                    
+                    html += '</div>';
                 }
                 
                 responseDiv.innerHTML = html;

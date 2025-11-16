@@ -224,6 +224,50 @@ def check_models() -> Dict[str, bool]:
     return {"base": False, "trained": False, "all_models": []}
 
 
+def check_gpu() -> Dict[str, Any]:
+    """Check if Metal GPU is being used by Ollama."""
+    try:
+        import subprocess
+        # Check Ollama logs for device type
+        result = subprocess.run(
+            ["docker", "logs", "training-ollama"],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        logs = result.stdout + result.stderr
+        
+        # Look for device information in logs
+        device_info = {}
+        if "device=CPU" in logs:
+            device_info["device"] = "CPU"
+            device_info["gpu_available"] = False
+        elif "device=GPU" in logs or "device=Metal" in logs:
+            device_info["device"] = "GPU/Metal"
+            device_info["gpu_available"] = True
+        else:
+            # Check recent model load logs
+            recent_logs = logs.split('\n')[-100:]  # Last 100 lines
+            for line in recent_logs:
+                if "device=" in line:
+                    if "CPU" in line:
+                        device_info["device"] = "CPU"
+                        device_info["gpu_available"] = False
+                        break
+                    elif "GPU" in line or "Metal" in line:
+                        device_info["device"] = "GPU/Metal"
+                        device_info["gpu_available"] = True
+                        break
+        
+        if not device_info:
+            # Default to CPU if we can't determine
+            device_info = {"device": "Unknown (likely CPU)", "gpu_available": False}
+        
+        return device_info
+    except Exception as e:
+        return {"device": "Error checking", "gpu_available": False, "error": str(e)}
+
+
 def prepare_training_data() -> Dict:
     """Extract training data from Alice in Wonderland."""
     try:
@@ -392,6 +436,12 @@ def query():
 def models():
     """Get available models."""
     return jsonify(check_models())
+
+
+@app.route('/api/gpu', methods=['GET'])
+def gpu():
+    """Check GPU/Metal status."""
+    return jsonify(check_gpu())
 
 
 @app.route('/api/training/prepare', methods=['POST'])
