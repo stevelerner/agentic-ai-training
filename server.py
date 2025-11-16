@@ -228,44 +228,103 @@ def check_gpu() -> Dict[str, Any]:
     """Check if Metal GPU is being used by Ollama."""
     try:
         import subprocess
-        # Check Ollama logs for device type
-        result = subprocess.run(
-            ["docker", "logs", "training-ollama"],
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
-        logs = result.stdout + result.stderr
+        import os
         
-        # Look for device information in logs
-        device_info = {}
-        if "device=CPU" in logs:
-            device_info["device"] = "CPU"
-            device_info["gpu_available"] = False
-        elif "device=GPU" in logs or "device=Metal" in logs:
-            device_info["device"] = "GPU/Metal"
-            device_info["gpu_available"] = True
-        else:
-            # Check recent model load logs
-            recent_logs = logs.split('\n')[-100:]  # Last 100 lines
-            for line in recent_logs:
-                if "device=" in line:
-                    if "CPU" in line:
-                        device_info["device"] = "CPU"
-                        device_info["gpu_available"] = False
-                        break
-                    elif "GPU" in line or "Metal" in line:
-                        device_info["device"] = "GPU/Metal"
-                        device_info["gpu_available"] = True
-                        break
+        # Check OLLAMA_HOST to determine if using native Ollama
+        ollama_host = os.getenv("OLLAMA_HOST", OLLAMA_HOST)
         
-        if not device_info:
-            # Default to CPU if we can't determine
-            device_info = {"device": "Unknown (likely CPU)", "gpu_available": False}
+        # If OLLAMA_HOST points to host.docker.internal, we're using native Ollama
+        if "host.docker.internal" in ollama_host:
+            # Native Ollama on macOS - Metal GPU should be available on Apple Silicon
+            return {
+                "device": "Metal GPU (native Ollama)",
+                "gpu_available": True,
+                "note": "Using native Ollama via host.docker.internal. On Apple Silicon, this uses Metal GPU."
+            }
         
-        return device_info
+        # Check if native Ollama is accessible (for cases where OLLAMA_HOST isn't set correctly)
+        try:
+            # Try to check if Docker Ollama container exists
+            docker_check = subprocess.run(
+                ["docker", "ps", "--filter", "name=training-ollama", "--format", "{{.Names}}"],
+                capture_output=True,
+                text=True,
+                timeout=2
+            )
+            if "training-ollama" not in docker_check.stdout:
+                # Docker Ollama not running - might be native Ollama
+                # Check if we can reach Ollama (native would be on host)
+                try:
+                    result = subprocess.run(
+                        ["curl", "-s", "http://host.docker.internal:11434/api/tags"],
+                        capture_output=True,
+                        text=True,
+                        timeout=2
+                    )
+                    if result.returncode == 0:
+                        return {
+                            "device": "Metal GPU (native Ollama)",
+                            "gpu_available": True,
+                            "note": "Native Ollama detected. On Apple Silicon, this uses Metal GPU."
+                        }
+                except:
+                    pass
+        except:
+            pass
+        
+        # Check Docker Ollama logs (will always be CPU)
+        try:
+            result = subprocess.run(
+                ["docker", "logs", "training-ollama"],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            logs = result.stdout + result.stderr
+            
+            # Look for device information in logs
+            if "device=CPU" in logs:
+                return {
+                    "device": "CPU (Docker container)",
+                    "gpu_available": False,
+                    "note": "Docker Desktop on macOS does not support GPU passthrough. Use native Ollama for Metal GPU."
+                }
+            elif "device=GPU" in logs or "device=Metal" in logs:
+                return {
+                    "device": "GPU/Metal",
+                    "gpu_available": True
+                }
+            else:
+                # Check recent model load logs
+                recent_logs = logs.split('\n')[-100:]  # Last 100 lines
+                for line in recent_logs:
+                    if "device=" in line:
+                        if "CPU" in line:
+                            return {
+                                "device": "CPU (Docker container)",
+                                "gpu_available": False,
+                                "note": "Docker Desktop on macOS does not support GPU passthrough. Use native Ollama for Metal GPU."
+                            }
+                        elif "GPU" in line or "Metal" in line:
+                            return {
+                                "device": "GPU/Metal",
+                                "gpu_available": True
+                            }
+        except:
+            pass
+        
+        # Default - can't determine
+        return {
+            "device": "Unknown (likely CPU)",
+            "gpu_available": False,
+            "note": "Cannot determine GPU status. If using Docker, Metal GPU is not available. Use native Ollama for Metal GPU support."
+        }
     except Exception as e:
-        return {"device": "Error checking", "gpu_available": False, "error": str(e)}
+        return {
+            "device": "Error checking",
+            "gpu_available": False,
+            "error": str(e)
+        }
 
 
 def prepare_training_data() -> Dict:

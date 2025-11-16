@@ -296,16 +296,20 @@
                 const response = await fetch('/api/gpu');
                 const data = await response.json();
                 
-                let status = 'GPU/Metal: ';
+                let html = 'GPU/Metal: ';
                 if (data.gpu_available) {
-                    status += data.device + ' (GPU acceleration active)';
+                    html += '<strong>' + data.device + '</strong> (GPU acceleration active)';
                     statusDiv.className = 'status success';
                 } else {
-                    status += data.device + ' (running on CPU)';
+                    html += '<strong>' + data.device + '</strong> (running on CPU)';
                     statusDiv.className = 'status';
                 }
                 
-                statusDiv.textContent = status;
+                if (data.note) {
+                    html += '<br><span style="font-size: 12px; color: #666; margin-top: 5px; display: block;">' + data.note + '</span>';
+                }
+                
+                statusDiv.innerHTML = html;
             } catch (error) {
                 statusDiv.textContent = 'Error checking GPU: ' + error.message;
                 statusDiv.className = 'status error';
