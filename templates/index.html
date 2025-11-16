@@ -166,11 +166,21 @@
             border-radius: 4px;
             border: 1px solid #ddd;
             width: 100%;
+            box-sizing: border-box;
+            overflow-wrap: break-word;
+            word-wrap: break-word;
         }
         
         .comparison-item h4 {
             margin-bottom: 10px;
             color: #4a90e2;
+        }
+        
+        .comparison-item pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            max-width: 100%;
         }
         
         .loading {
@@ -229,15 +239,15 @@
                 <label><input type="radio" name="model" value="llama3.1" checked> Base Model (llama3.1)</label>
                 <label><input type="radio" name="model" value="mad-hatter"> Trained Model (mad-hatter)</label>
             </div>
-            <input type="text" id="query-input" class="query-box" placeholder="Enter your query (e.g., 'Ask the Mad Hatter what time it is, then calculate 6 o'clock in minutes')">
+            <input type="text" id="query-input" class="query-box" placeholder="Enter your query">
             <div style="margin: 10px 0; font-size: 13px; color: #666;">
-                <strong>Suggested questions for Mad Hatter:</strong>
-                <div style="margin-top: 5px; display: flex; flex-wrap: wrap; gap: 5px;">
-                    <button onclick="setQuery('Why is a raven like a writing-desk?')" style="padding: 5px 10px; font-size: 12px; background: #e9ecef; color: #333; border: 1px solid #ddd;">Why is a raven like a writing-desk?</button>
-                    <button onclick="setQuery('What time is it? Calculate 6 o\\'clock in minutes and save to time.txt')" style="padding: 5px 10px; font-size: 12px; background: #e9ecef; color: #333; border: 1px solid #ddd;">Time + Calculate + Save</button>
-                    <button onclick="setQuery('Tell me about tea parties, then calculate how many cups of tea in 12 o\\'clock')" style="padding: 5px 10px; font-size: 12px; background: #e9ecef; color: #333; border: 1px solid #ddd;">Tea parties + Calculate</button>
-                    <button onclick="setQuery('What\\'s the difference between saying what you mean and meaning what you say? Calculate 2 + 2')" style="padding: 5px 10px; font-size: 12px; background: #e9ecef; color: #333; border: 1px solid #ddd;">Riddle + Calculate</button>
-                    <button onclick="setQuery('How many minutes until tea time? Calculate 6 * 60 and save the result')" style="padding: 5px 10px; font-size: 12px; background: #e9ecef; color: #333; border: 1px solid #ddd;">Tea time + Math</button>
+                <strong>Suggested questions:</strong>
+                <div style="margin-top: 5px; display: flex; flex-direction: column; gap: 5px;">
+                    <button onclick="setQuery('Why is a raven like a writing-desk?')" style="padding: 8px 12px; font-size: 13px; background: #e9ecef; color: #333; border: 1px solid #ddd; text-align: left; cursor: pointer;">Why is a raven like a writing-desk?</button>
+                    <button onclick="setQuery('What time is it? Then calculate how many minutes are in 6 hours and save to minutes.txt')" style="padding: 8px 12px; font-size: 13px; background: #e9ecef; color: #333; border: 1px solid #ddd; text-align: left; cursor: pointer;">What time is it? Then calculate 6 hours in minutes and save</button>
+                    <button onclick="setQuery('Tell me about tea parties, then calculate 6 * 60 and save the result to tea_time.txt')" style="padding: 8px 12px; font-size: 13px; background: #e9ecef; color: #333; border: 1px solid #ddd; text-align: left; cursor: pointer;">Tell me about tea parties, then calculate 6 * 60 and save</button>
+                    <button onclick="setQuery('What\\'s the difference between saying what you mean and meaning what you say? Then calculate 25 * 4')" style="padding: 8px 12px; font-size: 13px; background: #e9ecef; color: #333; border: 1px solid #ddd; text-align: left; cursor: pointer;">What's the difference between saying what you mean and meaning what you say? Then calculate 25 * 4</button>
+                    <button onclick="setQuery('How many minutes are in 6 hours? Calculate and save the result')" style="padding: 8px 12px; font-size: 13px; background: #e9ecef; color: #333; border: 1px solid #ddd; text-align: left; cursor: pointer;">How many minutes are in 6 hours? Calculate and save</button>
                 </div>
             </div>
             <button onclick="runQuery()">Run Query</button>

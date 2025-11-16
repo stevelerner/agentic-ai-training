@@ -162,7 +162,43 @@ docker exec training-ollama ollama ps
 docker logs training-ollama | grep "device="
 ```
 
-**Note:** Metal GPU access in Docker containers on macOS is limited. Ollama may fall back to CPU even on Apple Silicon. The demo works on CPU, but will be slower. For native Metal support, run Ollama directly on macOS (outside Docker).
+**Note:** Metal GPU access in Docker containers on macOS is **not available**. Docker Desktop on macOS does not support GPU passthrough. Ollama will always run on CPU inside Docker containers.
+
+**To Enable Metal GPU:**
+
+Run Ollama natively on macOS (outside Docker) for Metal GPU acceleration:
+
+1. **Install Ollama natively:**
+   ```bash
+   brew install ollama
+   # OR download from https://ollama.com/download
+   ```
+
+2. **Start Ollama natively:**
+   ```bash
+   ollama serve
+   ```
+
+3. **Use the native Ollama script:**
+   ```bash
+   ./run-with-native-ollama.sh
+   ```
+
+This script:
+- Starts Ollama natively (Metal GPU enabled)
+- Runs only the web container in Docker
+- Connects the web container to native Ollama via `host.docker.internal`
+
+**Verifying Metal GPU:**
+```bash
+# Check if Metal is being used (native Ollama)
+ollama ps
+
+# Monitor GPU usage
+# Open Activity Monitor > Window > GPU History
+```
+
+The demo works on CPU, but Metal GPU provides significantly faster inference.
 
 ## Limitations
 
