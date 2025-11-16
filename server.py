@@ -226,17 +226,119 @@ Think step by step and use tools when needed."""
 # ANALYSIS FUNCTIONS
 # ============================================================================
 
-def analyze_response(response_text: str) -> Dict[str, Any]:
-    """Analyze response for character-specific traits and metrics."""
-    text_lower = response_text.lower()
+def get_ngrams(text: str, n: int) -> set:
+    """Extract n-grams from text."""
+    words = text.lower().split()
+    return set(tuple(words[i:i+n]) for i in range(len(words) - n + 1))
+
+
+def calculate_rouge_l(reference: str, candidate: str) -> float:
+    """Calculate ROUGE-L (Longest Common Subsequence) score."""
+    ref_words = reference.lower().split()
+    cand_words = candidate.lower().split()
     
-    # Mad Hatter character indicators
+    # LCS using dynamic programming
+    m, n = len(ref_words), len(cand_words)
+    if m == 0 or n == 0:
+        return 0.0
+    
+    dp = [[0] * (n + 1) for _ in range(m + 1)]
+    for i in range(1, m + 1):
+        for j in range(1, n + 1):
+            if ref_words[i-1] == cand_words[j-1]:
+                dp[i][j] = dp[i-1][j-1] + 1
+            else:
+                dp[i][j] = max(dp[i-1][j], dp[i][j-1])
+    
+    lcs_length = dp[m][n]
+    if m == 0:
+        return 0.0
+    return lcs_length / m
+
+
+def calculate_rouge_n(reference: str, candidate: str, n: int) -> float:
+    """Calculate ROUGE-N (n-gram overlap) score."""
+    ref_ngrams = get_ngrams(reference, n)
+    cand_ngrams = get_ngrams(candidate, n)
+    
+    if len(ref_ngrams) == 0:
+        return 0.0
+    
+    overlap = len(ref_ngrams & cand_ngrams)
+    return overlap / len(ref_ngrams)
+
+
+def calculate_bleu(reference: str, candidate: str, max_n: int = 4) -> float:
+    """Calculate BLEU score (simplified version)."""
+    ref_words = reference.lower().split()
+    cand_words = candidate.lower().split()
+    
+    if len(cand_words) == 0:
+        return 0.0
+    
+    # Brevity penalty
+    bp = min(1.0, len(cand_words) / len(ref_words)) if len(ref_words) > 0 else 0.0
+    
+    # Precision for each n-gram order
+    precisions = []
+    for n in range(1, max_n + 1):
+        ref_ngrams = get_ngrams(reference, n)
+        cand_ngrams = get_ngrams(candidate, n)
+        
+        if len(cand_ngrams) == 0:
+            precisions.append(0.0)
+            continue
+        
+        overlap = len(ref_ngrams & cand_ngrams)
+        precisions.append(overlap / len(cand_ngrams))
+    
+    # Geometric mean of precisions
+    if all(p > 0 for p in precisions):
+        geo_mean = (precisions[0] * precisions[1] * precisions[2] * precisions[3]) ** 0.25
+    else:
+        geo_mean = 0.0
+    
+    return bp * geo_mean
+
+
+def calculate_jaccard_similarity(text1: str, text2: str) -> float:
+    """Calculate Jaccard similarity (word overlap)."""
+    words1 = set(text1.lower().split())
+    words2 = set(text2.lower().split())
+    
+    intersection = len(words1 & words2)
+    union = len(words1 | words2)
+    
+    return intersection / union if union > 0 else 0.0
+
+
+def analyze_response(response_text: str, reference_text: str = None) -> Dict[str, Any]:
+    """Analyze response with standard evaluation metrics."""
+    # Basic metrics
+    word_count = len(response_text.split())
+    char_count = len(response_text)
+    sentence_count = response_text.count('.') + response_text.count('!') + response_text.count('?')
+    
+    result = {
+        "word_count": word_count,
+        "char_count": char_count,
+        "sentence_count": sentence_count,
+    }
+    
+    # If reference text provided, calculate similarity metrics
+    if reference_text:
+        result["rouge_1"] = round(calculate_rouge_n(reference_text, response_text, 1) * 100, 2)
+        result["rouge_2"] = round(calculate_rouge_n(reference_text, response_text, 2) * 100, 2)
+        result["rouge_l"] = round(calculate_rouge_l(reference_text, response_text) * 100, 2)
+        result["bleu"] = round(calculate_bleu(reference_text, response_text) * 100, 2)
+        result["jaccard_similarity"] = round(calculate_jaccard_similarity(reference_text, response_text) * 100, 2)
+    
+    # Character trait detection (for insights, not scoring)
+    text_lower = response_text.lower()
     character_keywords = {
         "time": ["time", "o'clock", "clock", "hour", "minute", "tea time"],
         "tea": ["tea", "tea party", "cup", "saucer"],
         "riddle": ["riddle", "why is a raven", "writing-desk", "puzzle"],
-        "absurd": ["nonsense", "curious", "mad", "wonderland", "alice"],
-        "philosophical": ["meaning", "say what you mean", "mean what you say", "philosophy"]
     }
     
     detected_traits = {}
@@ -244,26 +346,12 @@ def analyze_response(response_text: str) -> Dict[str, Any]:
         count = sum(1 for keyword in keywords if keyword in text_lower)
         detected_traits[trait] = count
     
-    # Response metrics
-    word_count = len(response_text.split())
-    char_count = len(response_text)
-    sentence_count = response_text.count('.') + response_text.count('!') + response_text.count('?')
+    result["detected_traits"] = detected_traits
+    result["has_time_reference"] = detected_traits.get("time", 0) > 0
+    result["has_tea_reference"] = detected_traits.get("tea", 0) > 0
+    result["has_riddle"] = detected_traits.get("riddle", 0) > 0
     
-    # Calculate character score (how much it matches Mad Hatter traits)
-    trait_score = sum(detected_traits.values())
-    max_possible = sum(len(keywords) for keywords in character_keywords.values())
-    character_score = (trait_score / max_possible * 100) if max_possible > 0 else 0
-    
-    return {
-        "word_count": word_count,
-        "char_count": char_count,
-        "sentence_count": sentence_count,
-        "detected_traits": detected_traits,
-        "character_score": round(character_score, 1),
-        "has_time_reference": detected_traits.get("time", 0) > 0,
-        "has_tea_reference": detected_traits.get("tea", 0) > 0,
-        "has_riddle": detected_traits.get("riddle", 0) > 0
-    }
+    return result
 
 
 # ============================================================================
@@ -485,14 +573,13 @@ def compare_models():
     base_response = base_result.get("final_answer", "")
     trained_response = trained_result.get("final_answer", "")
     
-    # Analyze responses
+    # Analyze responses (using base as reference for similarity metrics)
     base_analysis = analyze_response(base_response)
-    trained_analysis = analyze_response(trained_response)
+    trained_analysis = analyze_response(trained_response, reference_text=base_response)
     
     # Calculate differences
     token_diff = trained_result.get("usage", {}).get("total_tokens", 0) - base_result.get("usage", {}).get("total_tokens", 0)
     word_diff = trained_analysis["word_count"] - base_analysis["word_count"]
-    char_score_diff = trained_analysis["character_score"] - base_analysis["character_score"]
     
     return jsonify({
         "query": query_text,
@@ -511,8 +598,13 @@ def compare_models():
         "differences": {
             "token_diff": token_diff,
             "word_diff": word_diff,
-            "character_score_diff": round(char_score_diff, 1),
-            "trained_more_characteristic": char_score_diff > 0
+            "similarity_metrics": {
+                "rouge_1": trained_analysis.get("rouge_1", 0),
+                "rouge_2": trained_analysis.get("rouge_2", 0),
+                "rouge_l": trained_analysis.get("rouge_l", 0),
+                "bleu": trained_analysis.get("bleu", 0),
+                "jaccard": trained_analysis.get("jaccard_similarity", 0)
+            }
         }
     })
 

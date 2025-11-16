@@ -518,7 +518,6 @@
                 if (data.base_model.analysis) {
                     const analysis = data.base_model.analysis;
                     html += `<div style="margin: 10px 0; padding: 10px; background: #f8f9fa; border-radius: 4px;">`;
-                    html += `<div style="font-size: 13px; margin-bottom: 8px;"><strong>Character Score:</strong> ${analysis.character_score}%</div>`;
                     html += `<div style="font-size: 13px; margin-bottom: 8px;"><strong>Word Count:</strong> ${analysis.word_count} words</div>`;
                     html += `<div style="font-size: 13px;">`;
                     html += `<span class="trait-badge ${analysis.has_time_reference ? 'active' : ''}">Time</span>`;
@@ -551,9 +550,27 @@
                 if (data.trained_model.analysis) {
                     const analysis = data.trained_model.analysis;
                     html += `<div style="margin: 10px 0; padding: 10px; background: #f8f9fa; border-radius: 4px;">`;
-                    html += `<div style="font-size: 13px; margin-bottom: 8px;"><strong>Character Score:</strong> ${analysis.character_score}% <span style="color: ${analysis.character_score > 0 ? '#28a745' : '#666'}">(${analysis.character_score > 0 ? '+' : ''}${data.differences?.character_score_diff || 0}%)</span></div>`;
                     html += `<div style="font-size: 13px; margin-bottom: 8px;"><strong>Word Count:</strong> ${analysis.word_count} words <span style="color: ${data.differences?.word_diff > 0 ? '#28a745' : data.differences?.word_diff < 0 ? '#dc3545' : '#666'}">(${data.differences?.word_diff > 0 ? '+' : ''}${data.differences?.word_diff || 0})</span></div>`;
-                    html += `<div style="font-size: 13px;">`;
+                    
+                    // Standard evaluation metrics (similarity to base model)
+                    if (data.differences?.similarity_metrics) {
+                        const metrics = data.differences.similarity_metrics;
+                        html += `<div style="font-size: 12px; margin-top: 10px; padding-top: 10px; border-top: 1px solid #ddd;">`;
+                        html += `<div style="margin-bottom: 8px;"><strong>Similarity Metrics (vs base):</strong></div>`;
+                        html += `<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; font-size: 11px; margin-bottom: 10px;">`;
+                        html += `<div title="Unigram (word-level) overlap between responses">ROUGE-1: <strong>${metrics.rouge_1 || 0}%</strong><br><span style="color: #666; font-size: 10px;">Word overlap</span></div>`;
+                        html += `<div title="Bigram (2-word phrase) overlap between responses">ROUGE-2: <strong>${metrics.rouge_2 || 0}%</strong><br><span style="color: #666; font-size: 10px;">Phrase overlap</span></div>`;
+                        html += `<div title="Longest Common Subsequence - measures sentence structure similarity">ROUGE-L: <strong>${metrics.rouge_l || 0}%</strong><br><span style="color: #666; font-size: 10px;">Structure similarity</span></div>`;
+                        html += `<div title="Bilingual Evaluation Understudy - n-gram precision with brevity penalty">BLEU: <strong>${metrics.bleu || 0}%</strong><br><span style="color: #666; font-size: 10px;">N-gram precision</span></div>`;
+                        html += `<div style="grid-column: 1 / -1;" title="Jaccard similarity - word set overlap (intersection over union)">Jaccard: <strong>${metrics.jaccard || 0}%</strong><br><span style="color: #666; font-size: 10px;">Word set overlap</span></div>`;
+                        html += `</div>`;
+                        html += `<div style="font-size: 10px; color: #666; padding: 8px; background: #f0f0f0; border-radius: 3px; margin-top: 5px;">`;
+                        html += `<strong>About these metrics:</strong> These standard NLP evaluation metrics measure how similar the trained model's response is to the base model's response. Lower scores indicate more distinct/different responses. ROUGE measures recall (overlap), BLEU measures precision, and Jaccard measures overall word set similarity.`;
+                        html += `</div>`;
+                        html += `</div>`;
+                    }
+                    
+                    html += `<div style="font-size: 13px; margin-top: 10px;">`;
                     html += `<span class="trait-badge ${analysis.has_time_reference ? 'active' : ''}">Time</span>`;
                     html += `<span class="trait-badge ${analysis.has_tea_reference ? 'active' : ''}">Tea</span>`;
                     html += `<span class="trait-badge ${analysis.has_riddle ? 'active' : ''}">Riddle</span>`;
@@ -571,10 +588,17 @@
                     html += `<h4>Key Insights</h4>`;
                     html += `<ul style="margin: 0; padding-left: 20px;">`;
                     
-                    if (data.differences.trained_more_characteristic) {
-                        html += `<li>The trained model shows <strong>${Math.abs(data.differences.character_score_diff)}% higher</strong> character score, indicating it's more in-character as the Mad Hatter.</li>`;
-                    } else if (data.differences.character_score_diff < 0) {
-                        html += `<li>The base model actually scored higher on character traits in this response.</li>`;
+                    // Similarity metrics interpretation
+                    if (data.differences.similarity_metrics) {
+                        const metrics = data.differences.similarity_metrics;
+                        const avgSimilarity = (metrics.rouge_1 + metrics.rouge_2 + metrics.rouge_l + metrics.bleu + metrics.jaccard) / 5;
+                        if (avgSimilarity < 30) {
+                            html += `<li>Low similarity (<strong>${avgSimilarity.toFixed(1)}%</strong> average) - trained model produces distinctly different responses.</li>`;
+                        } else if (avgSimilarity < 60) {
+                            html += `<li>Moderate similarity (<strong>${avgSimilarity.toFixed(1)}%</strong> average) - trained model shows some differences from base.</li>`;
+                        } else {
+                            html += `<li>High similarity (<strong>${avgSimilarity.toFixed(1)}%</strong> average) - trained model responses are similar to base.</li>`;
+                        }
                     }
                     
                     if (data.differences.token_diff !== 0) {
