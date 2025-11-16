@@ -52,35 +52,50 @@ http://localhost:8000
    - Use "Agent Query" to test tool calling
    - Use "Model Comparison" to see base vs trained differences
 
-## How It Works
+## Agentic AI vs LLM Chat
 
-### Training Process
+**LLM Chat:**
+- Single request → single response
+- No actions beyond text generation
+- Cannot interact with external systems
+- Example: "What is 25 * 4?" → "100"
 
-1. **Data Extraction**: Extracts Mad Hatter dialogue from Alice in Wonderland
-   - Finds dialogue attributed to "Hatter"
-   - Focuses on tea party scene (Chapter VII)
-   - Formats as instruction-response pairs
+**Agentic AI (This Demo):**
+- Multi-step reasoning loop (ReAct pattern)
+- Decides when to use tools autonomously
+- Executes actions (calculate, save files)
+- Observes results and adapts
+- Example: "Calculate 25 * 4 and save to file" → Uses calculator tool → Saves result → Confirms completion
 
-2. **Model Creation**: Creates a new Ollama model with:
-   - System prompt defining Mad Hatter character
-   - Base model (llama3.1) as foundation
-   - Character-specific behavior
+**Key Difference:**
+- Agentic: Can take actions, use tools, iterate until task complete
+- LLM Chat: Only generates text responses
 
-3. **Training Format**: Uses Ollama Modelfile approach
-   - System prompt for character definition
-   - Template-based fine-tuning
-   - Simplified for demo purposes
+## How Training Works
 
-### Agentic AI
+**Step 1: Data Extraction**
+- Scans Alice in Wonderland text for Mad Hatter dialogue
+- Extracts quotes attributed to "Hatter" character
+- Focuses on tea party scene (Chapter VII) for most examples
+- Formats as instruction-response pairs for training
 
-The agent implements ReAct pattern:
-- Receives user query
-- Decides if tools are needed
-- Executes tools (calculate, save_file)
-- Processes results
-- Returns final answer
+**Step 2: Model Creation**
+- Creates Ollama Modelfile with system prompt
+- Defines Mad Hatter character traits (time-obsessed, absurd, riddles)
+- Uses base model (llama3.1) as foundation
+- Applies character-specific behavior via system prompt
 
-Can switch between base and trained models to show differences.
+**Step 3: Training Result**
+- New model "mad-hatter" available in Ollama
+- Responds in character style when queried
+- Shows before/after difference vs base model
+- Demonstrates how training changes model behavior
+
+**Training Approach:**
+- Uses Ollama Modelfile (system prompt method)
+- Simplified for demo (not full parameter fine-tuning)
+- Fast to create, easy to understand
+- Shows concept of model customization
 
 ## Files
 
