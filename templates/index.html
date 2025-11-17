@@ -498,26 +498,30 @@
                 
                 let html = '<div class="comparison">';
                 
-                // Base Model
+                // Base Model - Response FIRST
                 html += `<div class="comparison-item">
                     <h4>Base Ollama Model (${data.base_model.model})</h4>`;
+                html += `<pre>${data.base_model.response}</pre>`;
                 
-                // Base model metrics
+                // Base model metrics AFTER response
                 if (data.base_model.usage) {
                     const usage = data.base_model.usage;
                     const evalTime = usage.eval_duration_ns ? (usage.eval_duration_ns / 1000000000).toFixed(2) : 'N/A';
+                    html += `<div style="margin-top: 20px; padding-top: 15px; border-top: 2px solid #ddd;">`;
+                    html += `<h5 style="margin-bottom: 10px; color: #333;">Token Usage & Statistics</h5>`;
                     html += `<div class="metrics">`;
                     html += `<div class="metric-item"><div class="metric-label">Total Tokens</div><div class="metric-value">${usage.total_tokens || 0}</div></div>`;
                     html += `<div class="metric-item"><div class="metric-label">Prompt</div><div class="metric-value">${usage.prompt_tokens || 0}</div></div>`;
                     html += `<div class="metric-item"><div class="metric-label">Completion</div><div class="metric-value">${usage.completion_tokens || 0}</div></div>`;
                     html += `<div class="metric-item"><div class="metric-label">Time</div><div class="metric-value">${evalTime}s</div></div>`;
                     html += `</div>`;
+                    html += `</div>`;
                 }
                 
                 // Base model analysis
                 if (data.base_model.analysis) {
                     const analysis = data.base_model.analysis;
-                    html += `<div style="margin: 10px 0; padding: 10px; background: #f8f9fa; border-radius: 4px;">`;
+                    html += `<div style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 4px;">`;
                     html += `<div style="font-size: 13px; margin-bottom: 8px;"><strong>Word Count:</strong> ${analysis.word_count} words</div>`;
                     html += `<div style="font-size: 13px;">`;
                     html += `<span class="trait-badge ${analysis.has_time_reference ? 'active' : ''}">Time</span>`;
@@ -527,49 +531,33 @@
                     html += `</div>`;
                 }
                 
-                html += `<pre>${data.base_model.response}</pre>`;
                 html += `</div>`;
                 
-                // Trained Model
+                // Trained Model - Response FIRST
                 html += `<div class="comparison-item">
                     <h4>Trained Ollama Model (${data.trained_model.model})</h4>`;
+                html += `<pre>${data.trained_model.response}</pre>`;
                 
-                // Trained model metrics
+                // Trained model metrics AFTER response
                 if (data.trained_model.usage) {
                     const usage = data.trained_model.usage;
                     const evalTime = usage.eval_duration_ns ? (usage.eval_duration_ns / 1000000000).toFixed(2) : 'N/A';
+                    html += `<div style="margin-top: 20px; padding-top: 15px; border-top: 2px solid #ddd;">`;
+                    html += `<h5 style="margin-bottom: 10px; color: #333;">Token Usage & Statistics</h5>`;
                     html += `<div class="metrics">`;
                     html += `<div class="metric-item"><div class="metric-label">Total Tokens</div><div class="metric-value">${usage.total_tokens || 0}</div></div>`;
                     html += `<div class="metric-item"><div class="metric-label">Prompt</div><div class="metric-value">${usage.prompt_tokens || 0}</div></div>`;
                     html += `<div class="metric-item"><div class="metric-label">Completion</div><div class="metric-value">${usage.completion_tokens || 0}</div></div>`;
                     html += `<div class="metric-item"><div class="metric-label">Time</div><div class="metric-value">${evalTime}s</div></div>`;
                     html += `</div>`;
+                    html += `</div>`;
                 }
                 
                 // Trained model analysis
                 if (data.trained_model.analysis) {
                     const analysis = data.trained_model.analysis;
-                    html += `<div style="margin: 10px 0; padding: 10px; background: #f8f9fa; border-radius: 4px;">`;
+                    html += `<div style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 4px;">`;
                     html += `<div style="font-size: 13px; margin-bottom: 8px;"><strong>Word Count:</strong> ${analysis.word_count} words <span style="color: ${data.differences?.word_diff > 0 ? '#28a745' : data.differences?.word_diff < 0 ? '#dc3545' : '#666'}">(${data.differences?.word_diff > 0 ? '+' : ''}${data.differences?.word_diff || 0})</span></div>`;
-                    
-                    // Standard evaluation metrics (similarity to base model)
-                    if (data.differences?.similarity_metrics) {
-                        const metrics = data.differences.similarity_metrics;
-                        html += `<div style="font-size: 12px; margin-top: 10px; padding-top: 10px; border-top: 1px solid #ddd;">`;
-                        html += `<div style="margin-bottom: 8px;"><strong>Similarity Metrics (vs base):</strong></div>`;
-                        html += `<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; font-size: 11px; margin-bottom: 10px;">`;
-                        html += `<div title="Unigram (word-level) overlap between responses">ROUGE-1: <strong>${metrics.rouge_1 || 0}%</strong><br><span style="color: #666; font-size: 10px;">Word overlap</span></div>`;
-                        html += `<div title="Bigram (2-word phrase) overlap between responses">ROUGE-2: <strong>${metrics.rouge_2 || 0}%</strong><br><span style="color: #666; font-size: 10px;">Phrase overlap</span></div>`;
-                        html += `<div title="Longest Common Subsequence - measures sentence structure similarity">ROUGE-L: <strong>${metrics.rouge_l || 0}%</strong><br><span style="color: #666; font-size: 10px;">Structure similarity</span></div>`;
-                        html += `<div title="Bilingual Evaluation Understudy - n-gram precision with brevity penalty">BLEU: <strong>${metrics.bleu || 0}%</strong><br><span style="color: #666; font-size: 10px;">N-gram precision</span></div>`;
-                        html += `<div style="grid-column: 1 / -1;" title="Jaccard similarity - word set overlap (intersection over union)">Jaccard: <strong>${metrics.jaccard || 0}%</strong><br><span style="color: #666; font-size: 10px;">Word set overlap</span></div>`;
-                        html += `</div>`;
-                        html += `<div style="font-size: 10px; color: #666; padding: 8px; background: #f0f0f0; border-radius: 3px; margin-top: 5px;">`;
-                        html += `<strong>About these metrics:</strong> These standard NLP evaluation metrics measure how similar the trained model's response is to the base model's response. Lower scores indicate more distinct/different responses. ROUGE measures recall (overlap), BLEU measures precision, and Jaccard measures overall word set similarity.`;
-                        html += `</div>`;
-                        html += `</div>`;
-                    }
-                    
                     html += `<div style="font-size: 13px; margin-top: 10px;">`;
                     html += `<span class="trait-badge ${analysis.has_time_reference ? 'active' : ''}">Time</span>`;
                     html += `<span class="trait-badge ${analysis.has_tea_reference ? 'active' : ''}">Tea</span>`;
@@ -578,7 +566,62 @@
                     html += `</div>`;
                 }
                 
-                html += `<pre>${data.trained_model.response}</pre>`;
+                // Standard evaluation metrics (similarity to base model) - AFTER response and stats
+                if (data.differences?.similarity_metrics) {
+                    const metrics = data.differences.similarity_metrics;
+                    html += `<div style="margin-top: 20px; padding: 15px; background: #e8f4f8; border-radius: 4px; border-left: 4px solid #4a90e2;">`;
+                    html += `<h5 style="margin-bottom: 10px; color: #333;">Similarity Metrics (vs Base Model)</h5>`;
+                    html += `<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 15px;">`;
+                    
+                    // ROUGE-1
+                    html += `<div style="padding: 10px; background: white; border-radius: 4px;">`;
+                    html += `<div style="font-size: 13px; margin-bottom: 5px;"><a href="https://en.wikipedia.org/wiki/ROUGE_(metric)" target="_blank" style="color: #4a90e2; text-decoration: none; font-weight: bold;">ROUGE-1</a>: <strong>${metrics.rouge_1 || 0}%</strong></div>`;
+                    html += `<div style="font-size: 11px; color: #666; line-height: 1.4;">Measures unigram (single word) overlap between responses. Higher scores indicate more shared words.</div>`;
+                    html += `</div>`;
+                    
+                    // ROUGE-2
+                    html += `<div style="padding: 10px; background: white; border-radius: 4px;">`;
+                    html += `<div style="font-size: 13px; margin-bottom: 5px;"><a href="https://en.wikipedia.org/wiki/ROUGE_(metric)" target="_blank" style="color: #4a90e2; text-decoration: none; font-weight: bold;">ROUGE-2</a>: <strong>${metrics.rouge_2 || 0}%</strong></div>`;
+                    html += `<div style="font-size: 11px; color: #666; line-height: 1.4;">Measures bigram (2-word phrase) overlap. Higher scores indicate more shared phrases and word pairs.</div>`;
+                    html += `</div>`;
+                    
+                    // ROUGE-L
+                    html += `<div style="padding: 10px; background: white; border-radius: 4px;">`;
+                    html += `<div style="font-size: 13px; margin-bottom: 5px;"><a href="https://en.wikipedia.org/wiki/ROUGE_(metric)" target="_blank" style="color: #4a90e2; text-decoration: none; font-weight: bold;">ROUGE-L</a>: <strong>${metrics.rouge_l || 0}%</strong></div>`;
+                    html += `<div style="font-size: 11px; color: #666; line-height: 1.4;">Measures longest common subsequence, capturing sentence structure and word order similarity.</div>`;
+                    html += `</div>`;
+                    
+                    // BLEU
+                    html += `<div style="padding: 10px; background: white; border-radius: 4px;">`;
+                    html += `<div style="font-size: 13px; margin-bottom: 5px;"><a href="https://en.wikipedia.org/wiki/BLEU" target="_blank" style="color: #4a90e2; text-decoration: none; font-weight: bold;">BLEU</a>: <strong>${metrics.bleu || 0}%</strong></div>`;
+                    html += `<div style="font-size: 11px; color: #666; line-height: 1.4;">Measures n-gram precision with brevity penalty. Standard metric for translation quality evaluation.</div>`;
+                    html += `</div>`;
+                    
+                    // Jaccard
+                    html += `<div style="grid-column: 1 / -1; padding: 10px; background: white; border-radius: 4px;">`;
+                    html += `<div style="font-size: 13px; margin-bottom: 5px;"><a href="https://en.wikipedia.org/wiki/Jaccard_index" target="_blank" style="color: #4a90e2; text-decoration: none; font-weight: bold;">Jaccard Similarity</a>: <strong>${metrics.jaccard || 0}%</strong></div>`;
+                    html += `<div style="font-size: 11px; color: #666; line-height: 1.4;">Measures word set overlap using intersection over union. Shows overall vocabulary similarity between responses.</div>`;
+                    html += `</div>`;
+                    
+                    html += `</div>`;
+                    
+                    // Conclusion/Interpretation
+                    const avgSimilarity = (metrics.rouge_1 + metrics.rouge_2 + metrics.rouge_l + metrics.bleu + metrics.jaccard) / 5;
+                    html += `<div style="margin-top: 15px; padding: 12px; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px;">`;
+                    html += `<strong style="color: #856404;">Interpretation:</strong> `;
+                    if (avgSimilarity < 20) {
+                        html += `<span style="color: #856404;">The trained model produces <strong>very different</strong> responses from the base model (${avgSimilarity.toFixed(1)}% average similarity). This indicates the training successfully changed the model's behavior, making it respond in a distinct, character-specific manner.</span>`;
+                    } else if (avgSimilarity < 40) {
+                        html += `<span style="color: #856404;">The trained model produces <strong>moderately different</strong> responses from the base model (${avgSimilarity.toFixed(1)}% average similarity). The training has influenced the model's output, showing some character-specific traits while maintaining some similarity to the base.</span>`;
+                    } else if (avgSimilarity < 60) {
+                        html += `<span style="color: #856404;">The trained model shows <strong>moderate similarity</strong> to the base model (${avgSimilarity.toFixed(1)}% average similarity). While there are differences, the responses share significant overlap in vocabulary and structure.</span>`;
+                    } else {
+                        html += `<span style="color: #856404;">The trained model produces <strong>similar</strong> responses to the base model (${avgSimilarity.toFixed(1)}% average similarity). The training had limited effect on changing the model's output style.</span>`;
+                    }
+                    html += `</div>`;
+                    html += `</div>`;
+                }
+                
                 html += `</div>`;
                 html += '</div>';
                 
