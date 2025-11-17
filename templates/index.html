@@ -278,6 +278,17 @@
             <p>Compare responses from base and trained Ollama models.</p>
             <p style="font-size: 13px; color: #666; margin-top: -10px; margin-bottom: 10px;">Both models are Ollama models: base (llama3.1) and trained (mad-hatter).</p>
             <input type="text" id="compare-input" class="query-box" placeholder="Enter a question (e.g., 'What time is it?')">
+            <div style="margin: 10px 0; font-size: 13px; color: #666;">
+                <strong>Suggested questions:</strong>
+                <div style="margin-top: 5px; display: flex; flex-direction: column; gap: 5px;">
+                    <button onclick="setCompareQuery('What time is it?')" style="padding: 8px 12px; font-size: 13px; background: #e9ecef; color: #333; border: 1px solid #ddd; text-align: left; cursor: pointer;">What time is it?</button>
+                    <button onclick="setCompareQuery('Why is a raven like a writing-desk?')" style="padding: 8px 12px; font-size: 13px; background: #e9ecef; color: #333; border: 1px solid #ddd; text-align: left; cursor: pointer;">Why is a raven like a writing-desk?</button>
+                    <button onclick="setCompareQuery('Which is better math or tea?')" style="padding: 8px 12px; font-size: 13px; background: #e9ecef; color: #333; border: 1px solid #ddd; text-align: left; cursor: pointer;">Which is better math or tea?</button>
+                    <button onclick="setCompareQuery('Tell me about yourself')" style="padding: 8px 12px; font-size: 13px; background: #e9ecef; color: #333; border: 1px solid #ddd; text-align: left; cursor: pointer;">Tell me about yourself</button>
+                    <button onclick="setCompareQuery('What\\'s the difference between saying what you mean and meaning what you say?')" style="padding: 8px 12px; font-size: 13px; background: #e9ecef; color: #333; border: 1px solid #ddd; text-align: left; cursor: pointer;">What's the difference between saying what you mean and meaning what you say?</button>
+                    <button onclick="setCompareQuery('Tell me about tea parties')" style="padding: 8px 12px; font-size: 13px; background: #e9ecef; color: #333; border: 1px solid #ddd; text-align: left; cursor: pointer;">Tell me about tea parties</button>
+                </div>
+            </div>
             <button onclick="compareModels()">Compare Models</button>
             <div id="compare-response" style="display:none;"></div>
         </div>
@@ -381,6 +392,10 @@
                 statusDiv.textContent = 'Error: ' + error.message;
                 statusDiv.className = 'status error';
             }
+        }
+        
+        function setCompareQuery(text) {
+            document.getElementById('compare-input').value = text;
         }
         
         async function compareModels() {
