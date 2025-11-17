@@ -282,28 +282,6 @@
             <div id="compare-response" style="display:none;"></div>
         </div>
         
-        <div class="section">
-            <h2>Agent Query</h2>
-            <p>Test the agent with tool calling. Select an Ollama model to use.</p>
-            <div class="model-selector">
-                <label><input type="radio" name="model" value="llama3.1" checked> Base Ollama Model (llama3.1)</label>
-                <label><input type="radio" name="model" value="mad-hatter"> Trained Ollama Model (mad-hatter)</label>
-            </div>
-            <input type="text" id="query-input" class="query-box" placeholder="Enter your query">
-            <div style="margin: 10px 0; font-size: 13px; color: #666;">
-                <strong>Suggested questions:</strong>
-                <div style="margin-top: 5px; display: flex; flex-direction: column; gap: 5px;">
-                    <button onclick="setQuery('Why is a raven like a writing-desk?')" style="padding: 8px 12px; font-size: 13px; background: #e9ecef; color: #333; border: 1px solid #ddd; text-align: left; cursor: pointer;">Why is a raven like a writing-desk?</button>
-                    <button onclick="setQuery('Which is better math or tea?')" style="padding: 8px 12px; font-size: 13px; background: #e9ecef; color: #333; border: 1px solid #ddd; text-align: left; cursor: pointer;">Which is better math or tea?</button>
-                    <button onclick="setQuery('What time is it? Then calculate how many minutes are in 6 hours and save to minutes.txt')" style="padding: 8px 12px; font-size: 13px; background: #e9ecef; color: #333; border: 1px solid #ddd; text-align: left; cursor: pointer;">What time is it? Then calculate 6 hours in minutes and save</button>
-                    <button onclick="setQuery('Tell me about tea parties, then calculate 6 * 60 and save the result to tea_time.txt')" style="padding: 8px 12px; font-size: 13px; background: #e9ecef; color: #333; border: 1px solid #ddd; text-align: left; cursor: pointer;">Tell me about tea parties, then calculate 6 * 60 and save</button>
-                    <button onclick="setQuery('What\\'s the difference between saying what you mean and meaning what you say? Then calculate 25 * 4')" style="padding: 8px 12px; font-size: 13px; background: #e9ecef; color: #333; border: 1px solid #ddd; text-align: left; cursor: pointer;">What's the difference between saying what you mean and meaning what you say? Then calculate 25 * 4</button>
-                    <button onclick="setQuery('How many minutes are in 6 hours? Calculate and save the result')" style="padding: 8px 12px; font-size: 13px; background: #e9ecef; color: #333; border: 1px solid #ddd; text-align: left; cursor: pointer;">How many minutes are in 6 hours? Calculate and save</button>
-                </div>
-            </div>
-            <button onclick="runQuery()">Run Query</button>
-            <div id="query-response" class="response" style="display:none;"></div>
-        </div>
     </div>
     
     <script>
@@ -405,75 +383,6 @@
             }
         }
         
-        function setQuery(text) {
-            document.getElementById('query-input').value = text;
-        }
-        
-        async function runQuery() {
-            const query = document.getElementById('query-input').value;
-            const model = document.querySelector('input[name="model"]:checked').value;
-            const responseDiv = document.getElementById('query-response');
-            
-            if (!query) {
-                alert('Please enter a query');
-                return;
-            }
-            
-            responseDiv.style.display = 'block';
-            responseDiv.innerHTML = '<div class="loading"></div> Running query...';
-            
-            try {
-                const response = await fetch('/api/query', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ query, model })
-                });
-                
-                const data = await response.json();
-                
-                let html = `<h3>Final Response (${data.model})</h3>`;
-                html += `<pre>${data.final_answer}</pre>`;
-                
-                // Display token usage
-                if (data.usage) {
-                    const usage = data.usage;
-                    const evalTime = usage.eval_duration_ns ? (usage.eval_duration_ns / 1000000000).toFixed(2) : 'N/A';
-                    html += `<div class="metrics">`;
-                    html += `<div class="metric-item"><div class="metric-label">Prompt Tokens</div><div class="metric-value">${usage.prompt_tokens || 0}</div></div>`;
-                    html += `<div class="metric-item"><div class="metric-label">Completion Tokens</div><div class="metric-value">${usage.completion_tokens || 0}</div></div>`;
-                    html += `<div class="metric-item"><div class="metric-label">Total Tokens</div><div class="metric-value">${usage.total_tokens || 0}</div></div>`;
-                    html += `<div class="metric-item"><div class="metric-label">Generation Time</div><div class="metric-value">${evalTime}s</div></div>`;
-                    html += `</div>`;
-                }
-                
-                if (data.steps && data.steps.length > 0) {
-                    html += '<h3 style="margin-top: 20px;">Agent Steps (Tool Usage):</h3>';
-                    html += '<div style="background: #f8f9fa; padding: 15px; border-radius: 4px; margin-top: 10px;">';
-                    
-                    data.steps.forEach((step, idx) => {
-                        if (step.type === 'tool_call') {
-                            html += `<div style="margin-bottom: 15px; padding: 10px; background: white; border-left: 4px solid #4a90e2; border-radius: 3px;">`;
-                            html += `<div style="font-weight: bold; color: #4a90e2; margin-bottom: 5px;">Step ${step.iteration}: Using Tool - ${step.tool}</div>`;
-                            html += `<div style="font-size: 13px; color: #666; margin-bottom: 5px;"><strong>Arguments:</strong> <code>${JSON.stringify(step.arguments, null, 2)}</code></div>`;
-                            html += `<div style="font-size: 13px; color: #28a745;"><strong>Result:</strong> <code>${JSON.stringify(step.result, null, 2)}</code></div>`;
-                            html += `</div>`;
-                        } else {
-                            html += `<div style="margin-bottom: 15px; padding: 10px; background: white; border-left: 4px solid #28a745; border-radius: 3px;">`;
-                            html += `<div style="font-weight: bold; color: #28a745;">Step ${step.iteration}: Final Answer</div>`;
-                            html += `<div style="font-size: 13px; color: #666; margin-top: 5px;">Agent completed task and provided final response above.</div>`;
-                            html += `</div>`;
-                        }
-                    });
-                    
-                    html += '</div>';
-                }
-                
-                responseDiv.innerHTML = html;
-            } catch (error) {
-                responseDiv.innerHTML = '<div class="status error">Error: ' + error.message + '</div>';
-            }
-        }
-        
         async function compareModels() {
             const query = document.getElementById('compare-input').value;
             const responseDiv = document.getElementById('compare-response');
@@ -569,7 +478,7 @@
                 if (data.differences?.similarity_metrics) {
                     const metrics = data.differences.similarity_metrics;
                     html += `<div style="margin-top: 20px; padding: 15px; background: #e8f4f8; border-radius: 4px; border-left: 4px solid #4a90e2;">`;
-                    html += `<h5 style="margin-bottom: 10px; color: #333;">Similarity Metrics (vs Base Model)</h5>`;
+                    html += `<h5 style="margin-bottom: 10px; color: #333;">Comparison of Trained Model to Base Model using Similarity Metrics</h5>`;
                     html += `<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 15px;">`;
                     
                     // ROUGE-1
@@ -604,45 +513,23 @@
                     
                     html += `</div>`;
                     
-                    // Conclusion/Interpretation
+                    // Conclusion/Interpretation merged with insights
                     const avgSimilarity = (metrics.rouge_1 + metrics.rouge_2 + metrics.rouge_l + metrics.bleu + metrics.jaccard) / 5;
                     html += `<div style="margin-top: 15px; padding: 12px; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px;">`;
-                    html += `<strong style="color: #856404;">Interpretation:</strong> `;
+                    html += `<strong style="color: #856404;">Conclusions & Insights:</strong><ul style="margin: 10px 0 0 0; padding-left: 20px; color: #856404;">`;
+                    
+                    // Similarity interpretation
                     if (avgSimilarity < 20) {
-                        html += `<span style="color: #856404;">The trained model produces <strong>very different</strong> responses from the base model (${avgSimilarity.toFixed(1)}% average similarity). This indicates the training successfully changed the model's behavior, making it respond in a distinct, character-specific manner.</span>`;
+                        html += `<li>The trained model produces <strong>very different</strong> responses from the base model (${avgSimilarity.toFixed(1)}% average similarity). This indicates the training successfully changed the model's behavior, making it respond in a distinct, character-specific manner.</li>`;
                     } else if (avgSimilarity < 40) {
-                        html += `<span style="color: #856404;">The trained model produces <strong>moderately different</strong> responses from the base model (${avgSimilarity.toFixed(1)}% average similarity). The training has influenced the model's output, showing some character-specific traits while maintaining some similarity to the base.</span>`;
+                        html += `<li>The trained model produces <strong>moderately different</strong> responses from the base model (${avgSimilarity.toFixed(1)}% average similarity). The training has influenced the model's output, showing some character-specific traits while maintaining some similarity to the base.</li>`;
                     } else if (avgSimilarity < 60) {
-                        html += `<span style="color: #856404;">The trained model shows <strong>moderate similarity</strong> to the base model (${avgSimilarity.toFixed(1)}% average similarity). While there are differences, the responses share significant overlap in vocabulary and structure.</span>`;
+                        html += `<li>The trained model shows <strong>moderate similarity</strong> to the base model (${avgSimilarity.toFixed(1)}% average similarity). While there are differences, the responses share significant overlap in vocabulary and structure.</li>`;
                     } else {
-                        html += `<span style="color: #856404;">The trained model produces <strong>similar</strong> responses to the base model (${avgSimilarity.toFixed(1)}% average similarity). The training had limited effect on changing the model's output style.</span>`;
-                    }
-                    html += `</div>`;
-                    html += `</div>`;
-                }
-                
-                html += `</div>`;
-                html += '</div>';
-                
-                // Insights section
-                if (data.differences) {
-                    html += `<div class="insights">`;
-                    html += `<h4>Key Insights</h4>`;
-                    html += `<ul style="margin: 0; padding-left: 20px;">`;
-                    
-                    // Similarity metrics interpretation
-                    if (data.differences.similarity_metrics) {
-                        const metrics = data.differences.similarity_metrics;
-                        const avgSimilarity = (metrics.rouge_1 + metrics.rouge_2 + metrics.rouge_l + metrics.bleu + metrics.jaccard) / 5;
-                        if (avgSimilarity < 30) {
-                            html += `<li>Low similarity (<strong>${avgSimilarity.toFixed(1)}%</strong> average) - trained model produces distinctly different responses.</li>`;
-                        } else if (avgSimilarity < 60) {
-                            html += `<li>Moderate similarity (<strong>${avgSimilarity.toFixed(1)}%</strong> average) - trained model shows some differences from base.</li>`;
-                        } else {
-                            html += `<li>High similarity (<strong>${avgSimilarity.toFixed(1)}%</strong> average) - trained model responses are similar to base.</li>`;
-                        }
+                        html += `<li>The trained model produces <strong>similar</strong> responses to the base model (${avgSimilarity.toFixed(1)}% average similarity). The training had limited effect on changing the model's output style.</li>`;
                     }
                     
+                    // Additional insights
                     if (data.differences.token_diff !== 0) {
                         const tokenDiff = data.differences.token_diff;
                         html += `<li>Token usage difference: <strong>${tokenDiff > 0 ? '+' : ''}${tokenDiff} tokens</strong> (${tokenDiff > 0 ? 'trained used more' : 'trained used fewer'}).</li>`;
@@ -661,9 +548,12 @@
                         html += `<li>✓ Trained model includes riddles (characteristic of Mad Hatter).</li>`;
                     }
                     
-                    html += `</ul>`;
+                    html += `</ul></div>`;
                     html += `</div>`;
                 }
+                
+                html += `</div>`;
+                html += '</div>';
                 
                 responseDiv.innerHTML = html;
             } catch (error) {
