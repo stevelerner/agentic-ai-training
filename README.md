@@ -54,12 +54,12 @@ http://localhost:8000
 ```
 
 4. In the web UI:
-   - Click "Check Models" to verify models are available
+   - Model status is checked automatically on page load
    - Click "Prepare Training Data" to extract Mad Hatter dialogue
    - Click "Create Trained Model" to create the modelfile
    - Run `./create-model.sh` from host to create the trained model
-   - Use "Model Comparison" to see base vs trained differences
-   - Use "Agent Query" to test tool calling with suggested questions
+   - Use "Model Comparison" to compare base vs trained models with suggested prompts
+   - View token usage, similarity metrics (ROUGE, BLEU, Jaccard), and detailed insights
 
 ## Agentic AI vs LLM Chat
 
@@ -110,17 +110,19 @@ http://localhost:8000
 ## Files
 
 **Core Files:**
-- `server.py`: Web server, agent logic, training API
+- `server.py`: Web server, agent logic, training API (Docker-only setup)
+- `server-metal.py`: Extended server with Metal GPU support and native Ollama detection
 - `training.py`: Model creation and training functions
 - `data_processor.py`: Extract character dialogue from text
 - `docker-compose.yml`: Container orchestration
 - `Dockerfile`: Web service container
-- `templates/index.html`: Web UI with suggested questions and tool usage display
+- `templates/index.html`: Web UI with model comparison, token usage, and similarity metrics
 
 **Scripts:**
-- `run.sh`: Quick start script
-- `create-model.sh`: Create trained model (run from host)
+- `run.sh`: Quick start script (handles errors gracefully, pauses before exit)
+- `create-model.sh`: Create trained model in Docker Ollama (run from host)
 - `cleanup.sh`: Clean up containers and volumes
+- `server-metal.py`: Alternative server with Metal GPU support (optional)
 
 **Data:**
 - `alice_in_wonderland.txt`: Source text for training
@@ -128,16 +130,27 @@ http://localhost:8000
 - `checkpoints/`: Generated modelfiles
 - `outputs/`: Agent-generated files
 
-## Example Queries
+## Model Comparison Features
 
-**Agent Query:**
-- "Calculate 25 * 4 and save the result to result.txt"
-- "What is 100 divided by 5?"
+The web UI provides comprehensive comparison between base and trained models:
 
-**Model Comparison:**
-- "What time is it?"
-- "Why is a raven like a writing-desk?"
-- "Tell me about yourself"
+**Suggested Prompts:**
+- "What time is it?" - Highlights time obsession
+- "Why is a raven like a writing-desk?" - Classic Mad Hatter riddle
+- "Which is better math or tea?" - Character preference
+- "Tell me about yourself" - Character introduction
+- "What's the difference between saying what you mean and meaning what you say?" - Philosophical question
+- "Tell me about tea parties" - Tea party theme
+
+**Evaluation Metrics:**
+- **Token Usage**: Prompt tokens, completion tokens, total tokens, generation time
+- **Standard NLP Metrics**:
+  - **[ROUGE-1](https://en.wikipedia.org/wiki/ROUGE_(metric))**: Measures unigram (single word) overlap between responses. Higher scores indicate more shared words. This metric focuses on recall - how many words from the base model's response appear in the trained model's response.
+  - **[ROUGE-2](https://en.wikipedia.org/wiki/ROUGE_(metric))**: Measures bigram (2-word phrase) overlap. Higher scores indicate more shared phrases and word pairs. This captures phrase-level similarity, showing if the models use similar word combinations.
+  - **[ROUGE-L](https://en.wikipedia.org/wiki/ROUGE_(metric))**: Measures longest common subsequence, capturing sentence structure and word order similarity. This metric evaluates how similar the overall sentence structure is, regardless of exact word matches.
+  - **[BLEU](https://en.wikipedia.org/wiki/BLEU)**: Measures n-gram precision with brevity penalty. Standard metric for translation quality evaluation. BLEU focuses on precision - how many n-grams in the trained model's response appear in the base model's response, penalizing overly short responses.
+  - **[Jaccard Similarity](https://en.wikipedia.org/wiki/Jaccard_index)**: Measures word set overlap using intersection over union. Shows overall vocabulary similarity between responses. Calculates the ratio of shared words to total unique words, providing a balanced view of vocabulary overlap.
+- **Insights**: Automatic interpretation of similarity scores and character trait detection
 
 ## Training Data
 
@@ -155,6 +168,14 @@ Both models are Ollama models:
   - Speak in absurd, nonsensical ways
   - Ask riddles
   - Show philosophical but illogical reasoning
+
+**Comparison Features:**
+- Responses displayed first, followed by detailed statistics
+- Token consumption tracking (prompt, completion, total, generation time)
+- Standard NLP evaluation metrics ([ROUGE](https://en.wikipedia.org/wiki/ROUGE_(metric)), [BLEU](https://en.wikipedia.org/wiki/BLEU), [Jaccard](https://en.wikipedia.org/wiki/Jaccard_index)) with descriptions and links
+- Individual metric conclusions based on score values
+- Overall similarity interpretation and insights
+- Character trait detection (time references, tea references, riddles)
 
 ## Limitations
 
