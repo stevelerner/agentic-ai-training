@@ -6,10 +6,10 @@ echo "Starting AI Training Demo..."
 # Check for existing containers
 if docker ps -a --format "{{.Names}}" 2>/dev/null | grep -qE "^training-ollama$|^training-web$"; then
     echo ""
-    echo "Error: Containers already exist. Please run cleanup first:"
+    echo "Containers already exist. Please run cleanup first:"
     echo "  ./cleanup.sh"
     echo ""
-    exit 1
+    exit 0
 fi
 
 # Start containers
