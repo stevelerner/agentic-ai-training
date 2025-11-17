@@ -1,12 +1,42 @@
 #!/usr/bin/env python3
 """
 Training Demo Server - Demonstrates agentic AI and model training.
+
+This Flask web server provides a complete demonstration of:
+1. Agentic AI: An agent that uses tools (calculate, save_file) following the ReAct pattern
+   (Reason → Act → Observe loop)
+2. Model Training: Creating custom Ollama models with character-specific behavior
+3. Model Comparison: Comparing base and trained models using standard NLP evaluation metrics
+
+The server implements:
+- A TrainingAgent class that can switch between base and trained models
+- Tool execution (mathematical calculations, file saving)
+- Training data extraction from Alice in Wonderland
+- Model creation via Ollama Modelfiles
+- Response analysis using ROUGE, BLEU, and Jaccard similarity metrics
+- RESTful API endpoints for web UI interaction
+
+Key Features:
+- ReAct pattern: Agent reasons about when to use tools, executes them, observes results
+- Model switching: Seamlessly switch between base (llama3.1) and trained (mad-hatter) models
+- Character preservation: Trained model maintains character traits via system prompts
+- Evaluation metrics: Standard NLP metrics for comparing model responses
+- Token tracking: Monitor token usage and generation time for each query
+
+Example Usage:
+    Start the server:
+        python server.py
+    
+    Or via Docker:
+        docker compose up
+    
+    Then access the web UI at http://localhost:5000
 """
 
 import json
 import os
 import subprocess
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Tuple
 from flask import Flask, render_template, request, jsonify
 import requests
 
@@ -21,9 +51,29 @@ TRAINED_MODEL = "mad-hatter"
 # TOOL DEFINITIONS
 # ============================================================================
 
-def calculate(expression: str) -> Dict:
-    """Evaluate a mathematical expression."""
+def calculate(expression: str) -> Dict[str, Any]:
+    """
+    Evaluate a mathematical expression safely.
+    
+    This tool allows the agent to perform mathematical calculations. It uses
+    a whitelist approach to ensure only safe mathematical operations are allowed.
+    
+    Args:
+        expression: Mathematical expression as a string (e.g., "25 * 4", "10 + 5")
+        
+    Returns:
+        Dictionary with either:
+        - {"result": <number>} on success
+        - {"error": <error_message>} on failure
+        
+    Example:
+        >>> calculate("25 * 4")
+        {"result": 100}
+        >>> calculate("10 + 5 - 3")
+        {"result": 12}
+    """
     try:
+        # Whitelist approach: only allow safe mathematical characters
         allowed_chars = set('0123456789+-*/(). ')
         if not all(c in allowed_chars for c in expression):
             return {"error": "Invalid characters in expression"}
@@ -34,7 +84,25 @@ def calculate(expression: str) -> Dict:
 
 
 def save_file(filename: str, content: str) -> Dict[str, str]:
-    """Save content to a file."""
+    """
+    Save content to a file in the outputs directory.
+    
+    This tool allows the agent to persist data to disk. All files are saved
+    in the "outputs" directory, which is mounted as a volume in Docker.
+    
+    Args:
+        filename: Name of the file to create (e.g., "result.txt")
+        content: Content to write to the file
+        
+    Returns:
+        Dictionary with either:
+        - {"status": "success", "message": <path>} on success
+        - {"status": "error", "message": <error_message>} on failure
+        
+    Example:
+        >>> save_file("result.txt", "The answer is 100")
+        {"status": "success", "message": "Saved to outputs/result.txt"}
+    """
     try:
         os.makedirs("outputs", exist_ok=True)
         with open(f"outputs/{filename}", 'w') as f:
@@ -63,15 +131,72 @@ TOOLS = {
 # ============================================================================
 
 class TrainingAgent:
-    """Agent that can use tools and switch between base and trained models."""
+    """
+    Agent that implements the ReAct pattern (Reason → Act → Observe).
+    
+    This agent can:
+    - Use tools (calculate, save_file) to accomplish tasks
+    - Switch between base and trained models
+    - Maintain conversation context across tool calls
+    - Track token usage and generation time
+    
+    The ReAct pattern works as follows:
+    1. Reason: Agent receives a query and decides if tools are needed
+    2. Act: Agent calls tools and receives results
+    3. Observe: Agent processes tool results and decides next action
+    4. Repeat until final answer is reached
+    
+    For character models (like mad-hatter), the agent embeds tool instructions
+    in the user message rather than using a system prompt, preserving the
+    model's character-defining system prompt.
+    
+    Attributes:
+        ollama_host: URL of the Ollama API server
+        model: Current model being used (default: BASE_MODEL)
+        conversation_history: List of conversation messages (for future use)
+        
+    Example:
+        >>> agent = TrainingAgent()
+        >>> result = agent.run("Calculate 25 * 4 and save the result")
+        >>> print(result["final_answer"])
+        "I calculated 25 * 4 = 100 and saved it to outputs/result.txt"
+    """
     
     def __init__(self, ollama_host: str = OLLAMA_HOST):
+        """
+        Initialize the TrainingAgent.
+        
+        Args:
+            ollama_host: URL of the Ollama API server (default: OLLAMA_HOST)
+        """
         self.ollama_host = ollama_host
         self.model = BASE_MODEL
         self.conversation_history = []
         
-    def call_ollama(self, messages: list, model: Optional[str] = None) -> tuple:
-        """Call Ollama API to get LLM response and token usage."""
+    def call_ollama(self, messages: list, model: Optional[str] = None) -> Tuple[str, Dict[str, Any]]:
+        """
+        Call Ollama API to get LLM response and token usage.
+        
+        Sends a chat request to Ollama and returns both the response content
+        and token usage statistics (prompt tokens, completion tokens, duration).
+        
+        Args:
+            messages: List of message dictionaries with "role" and "content" keys
+            model: Model name to use (default: self.model)
+            
+        Returns:
+            Tuple of (response_content, usage_dict) where:
+            - response_content: The LLM's text response
+            - usage_dict: Dictionary with token usage and timing:
+                - prompt_tokens: Number of tokens in the prompt
+                - completion_tokens: Number of tokens in the completion
+                - total_tokens: Total tokens used
+                - eval_duration_ns: Time to generate response (nanoseconds)
+                - total_duration_ns: Total request time (nanoseconds)
+                
+        Raises:
+            Returns error message string and zero usage dict on failure
+        """
         model = model or self.model
         try:
             response = requests.post(
@@ -98,8 +223,24 @@ class TrainingAgent:
         except Exception as e:
             return f"Error calling Ollama: {e}", {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0, "eval_duration_ns": 0, "total_duration_ns": 0}
     
-    def parse_tool_call(self, text: str) -> Optional[tuple]:
-        """Extract tool call from LLM response."""
+    def parse_tool_call(self, text: str) -> Optional[Tuple[str, Dict[str, Any]]]:
+        """
+        Extract tool call from LLM response.
+        
+        Parses JSON tool calls from the LLM's response. Expected format:
+        {"tool": "tool_name", "arguments": {"arg1": "value1"}}
+        
+        Args:
+            text: The LLM's response text that may contain a tool call
+            
+        Returns:
+            Tuple of (tool_name, arguments_dict) if a valid tool call is found,
+            None otherwise
+            
+        Example:
+            >>> agent.parse_tool_call('{"tool": "calculate", "arguments": {"expression": "25*4"}}')
+            ("calculate", {"expression": "25*4"})
+        """
         text = text.strip()
         if "{" in text and "}" in text:
             start = text.find("{")
@@ -113,8 +254,25 @@ class TrainingAgent:
                 pass
         return None
     
-    def execute_tool(self, tool_name: str, arguments: Dict) -> Any:
-        """Execute a tool and return the result."""
+    def execute_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Any:
+        """
+        Execute a tool and return the result.
+        
+        Looks up the tool in the TOOLS registry and executes it with the
+        provided arguments.
+        
+        Args:
+            tool_name: Name of the tool to execute (must be in TOOLS registry)
+            arguments: Dictionary of arguments to pass to the tool function
+            
+        Returns:
+            The result from the tool function, or {"error": <message>} if
+            the tool is not found or execution fails
+            
+        Example:
+            >>> agent.execute_tool("calculate", {"expression": "10 + 5"})
+            {"result": 15}
+        """
         if tool_name not in TOOLS:
             return {"error": f"Unknown tool: {tool_name}"}
         try:
@@ -124,8 +282,39 @@ class TrainingAgent:
         except Exception as e:
             return {"error": str(e)}
     
-    def run(self, user_query: str, model: Optional[str] = None, max_iterations: int = 5) -> Dict:
-        """Main agent loop with ReAct pattern."""
+    def run(self, user_query: str, model: Optional[str] = None, max_iterations: int = 5) -> Dict[str, Any]:
+        """
+        Main agent loop implementing the ReAct pattern.
+        
+        This is the core agent method that:
+        1. Formats the query with tool instructions (preserving character prompts for trained models)
+        2. Calls the LLM to get a response
+        3. Parses the response for tool calls
+        4. Executes tools if needed and feeds results back to the LLM
+        5. Repeats until a final answer is reached or max_iterations is exceeded
+        
+        For trained character models (like mad-hatter), tool instructions are
+        embedded in the user message rather than using a system prompt. This
+        preserves the model's character-defining system prompt.
+        
+        Args:
+            user_query: The user's question or request
+            model: Model to use (default: self.model, can be BASE_MODEL or TRAINED_MODEL)
+            max_iterations: Maximum number of tool-call iterations (default: 5)
+            
+        Returns:
+            Dictionary containing:
+            - final_answer: The agent's final response
+            - steps: List of step dictionaries showing the agent's reasoning process
+            - model: The model used
+            - usage: Accumulated token usage across all iterations
+            
+        Example:
+            >>> agent = TrainingAgent()
+            >>> result = agent.run("What is 25 times 4?")
+            >>> print(result["final_answer"])
+            "25 times 4 equals 100."
+        """
         model = model or self.model
         
         # For trained character models, don't send system message - let model's system prompt work
@@ -227,13 +416,47 @@ Think step by step and use tools when needed."""
 # ============================================================================
 
 def get_ngrams(text: str, n: int) -> set:
-    """Extract n-grams from text."""
+    """
+    Extract n-grams (contiguous sequences of n words) from text.
+    
+    Used for calculating ROUGE-N and BLEU scores, which measure n-gram overlap
+    between reference and candidate texts.
+    
+    Args:
+        text: Input text to extract n-grams from
+        n: Size of n-grams (1=unigrams, 2=bigrams, etc.)
+        
+    Returns:
+        Set of n-gram tuples (each tuple contains n words)
+        
+    Example:
+        >>> get_ngrams("the quick brown fox", 2)
+        {('the', 'quick'), ('quick', 'brown'), ('brown', 'fox')}
+    """
     words = text.lower().split()
     return set(tuple(words[i:i+n]) for i in range(len(words) - n + 1))
 
 
 def calculate_rouge_l(reference: str, candidate: str) -> float:
-    """Calculate ROUGE-L (Longest Common Subsequence) score."""
+    """
+    Calculate ROUGE-L (Longest Common Subsequence) score.
+    
+    ROUGE-L measures the longest common subsequence (LCS) of words between
+    reference and candidate texts. It captures sentence-level structure
+    similarity and is less sensitive to word order than n-gram metrics.
+    
+    Score range: 0.0 to 1.0 (higher is better)
+    
+    Args:
+        reference: Reference text (ground truth)
+        candidate: Candidate text to evaluate
+        
+    Returns:
+        ROUGE-L score as a float between 0.0 and 1.0
+        
+    Reference:
+        https://aclanthology.org/W04-1013/
+    """
     ref_words = reference.lower().split()
     cand_words = candidate.lower().split()
     
@@ -257,7 +480,26 @@ def calculate_rouge_l(reference: str, candidate: str) -> float:
 
 
 def calculate_rouge_n(reference: str, candidate: str, n: int) -> float:
-    """Calculate ROUGE-N (n-gram overlap) score."""
+    """
+    Calculate ROUGE-N (n-gram overlap) score.
+    
+    ROUGE-N measures the overlap of n-grams between reference and candidate
+    texts. ROUGE-1 measures unigram (word) overlap, ROUGE-2 measures bigram
+    overlap, etc. Higher scores indicate more shared n-grams.
+    
+    Score range: 0.0 to 1.0 (higher is better)
+    
+    Args:
+        reference: Reference text (ground truth)
+        candidate: Candidate text to evaluate
+        n: Size of n-grams (1 for ROUGE-1, 2 for ROUGE-2, etc.)
+        
+    Returns:
+        ROUGE-N score as a float between 0.0 and 1.0
+        
+    Reference:
+        https://aclanthology.org/W04-1013/
+    """
     ref_ngrams = get_ngrams(reference, n)
     cand_ngrams = get_ngrams(candidate, n)
     
@@ -269,7 +511,27 @@ def calculate_rouge_n(reference: str, candidate: str, n: int) -> float:
 
 
 def calculate_bleu(reference: str, candidate: str, max_n: int = 4) -> float:
-    """Calculate BLEU score (simplified version)."""
+    """
+    Calculate BLEU score (simplified version).
+    
+    BLEU (Bilingual Evaluation Understudy) measures n-gram precision with
+    a brevity penalty. It's commonly used for machine translation evaluation.
+    This implementation calculates precision for n-grams up to max_n and
+    applies a brevity penalty.
+    
+    Score range: 0.0 to 1.0 (higher is better)
+    
+    Args:
+        reference: Reference text (ground truth)
+        candidate: Candidate text to evaluate
+        max_n: Maximum n-gram order to consider (default: 4)
+        
+    Returns:
+        BLEU score as a float between 0.0 and 1.0
+        
+    Reference:
+        https://aclanthology.org/P02-1040/
+    """
     ref_words = reference.lower().split()
     cand_words = candidate.lower().split()
     
@@ -302,7 +564,26 @@ def calculate_bleu(reference: str, candidate: str, max_n: int = 4) -> float:
 
 
 def calculate_jaccard_similarity(text1: str, text2: str) -> float:
-    """Calculate Jaccard similarity (word overlap)."""
+    """
+    Calculate Jaccard similarity coefficient (word overlap).
+    
+    Jaccard similarity measures the overlap between two sets of words.
+    It's calculated as the intersection divided by the union of word sets.
+    This provides a simple measure of how many words are shared between texts.
+    
+    Score range: 0.0 to 1.0 (higher is better)
+    
+    Args:
+        text1: First text to compare
+        text2: Second text to compare
+        
+    Returns:
+        Jaccard similarity score as a float between 0.0 and 1.0
+        
+    Example:
+        >>> calculate_jaccard_similarity("the cat sat", "the dog sat")
+        0.5  # 2 shared words ("the", "sat") out of 4 unique words total
+    """
     words1 = set(text1.lower().split())
     words2 = set(text2.lower().split())
     
@@ -312,8 +593,37 @@ def calculate_jaccard_similarity(text1: str, text2: str) -> float:
     return intersection / union if union > 0 else 0.0
 
 
-def analyze_response(response_text: str, reference_text: str = None) -> Dict[str, Any]:
-    """Analyze response with standard evaluation metrics."""
+def analyze_response(response_text: str, reference_text: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Analyze a response text with standard evaluation metrics.
+    
+    Calculates basic text statistics and, if a reference text is provided,
+    computes similarity metrics (ROUGE-1, ROUGE-2, ROUGE-L, BLEU, Jaccard).
+    Also detects character-specific traits (time references, tea references, riddles)
+    for the Mad Hatter character.
+    
+    Args:
+        response_text: The text to analyze
+        reference_text: Optional reference text for similarity calculations
+        
+    Returns:
+        Dictionary containing:
+        - word_count: Number of words
+        - char_count: Number of characters
+        - sentence_count: Approximate sentence count
+        - rouge_1, rouge_2, rouge_l, bleu, jaccard_similarity: If reference provided
+        - detected_traits: Dictionary of character trait keyword counts
+        - has_time_reference, has_tea_reference, has_riddle: Boolean flags
+        
+    Example:
+        >>> analyze_response("It's always six o'clock!", "It's tea time!")
+        {
+            "word_count": 4,
+            "rouge_1": 25.0,
+            "has_time_reference": True,
+            ...
+        }
+    """
     # Basic metrics
     word_count = len(response_text.split())
     char_count = len(response_text)
@@ -358,8 +668,27 @@ def analyze_response(response_text: str, reference_text: str = None) -> Dict[str
 # TRAINING FUNCTIONS
 # ============================================================================
 
-def check_models() -> Dict[str, bool]:
-    """Check which models are available in Ollama."""
+def check_models() -> Dict[str, Any]:
+    """
+    Check which models are available in Ollama.
+    
+    Queries the Ollama API to see which models are installed. Used by the
+    web UI to display model status and enable/disable features accordingly.
+    
+    Returns:
+        Dictionary containing:
+        - base: Boolean indicating if BASE_MODEL (llama3.1) is available
+        - trained: Boolean indicating if TRAINED_MODEL (mad-hatter) is available
+        - all_models: List of all model names found in Ollama
+        
+    Example:
+        >>> check_models()
+        {
+            "base": True,
+            "trained": True,
+            "all_models": ["llama3.1:latest", "mad-hatter:latest"]
+        }
+    """
     try:
         response = requests.get(f"{OLLAMA_HOST}/api/tags", timeout=10)
         if response.status_code == 200:
@@ -377,8 +706,27 @@ def check_models() -> Dict[str, bool]:
     return {"base": False, "trained": False, "all_models": []}
 
 
-def prepare_training_data() -> Dict:
-    """Extract training data from Alice in Wonderland."""
+def prepare_training_data() -> Dict[str, Any]:
+    """
+    Extract Mad Hatter dialogue from Alice in Wonderland text.
+    
+    Processes the alice_in_wonderland.txt file to extract dialogue attributed
+    to the Mad Hatter character. The extracted examples are saved as JSONL
+    format for use in model training.
+    
+    Returns:
+        Dictionary with either:
+        - {"status": "success", "examples": <count>, "file": <path>} on success
+        - {"status": "error", "message": <error_message>} on failure
+        
+    Example:
+        >>> prepare_training_data()
+        {
+            "status": "success",
+            "examples": 43,
+            "file": "training_data/mad_hatter_training.jsonl"
+        }
+    """
     try:
         from data_processor import extract_mad_hatter_dialogue
         
@@ -409,8 +757,33 @@ def prepare_training_data() -> Dict:
         return {"status": "error", "message": str(e)}
 
 
-def create_trained_model() -> Dict:
-    """Create the trained model modelfile. Model creation requires docker command from host."""
+def create_trained_model() -> Dict[str, Any]:
+    """
+    Create the trained model using Ollama Modelfile.
+    
+    This function:
+    1. Ensures training data exists (creates it if needed)
+    2. Generates a Modelfile with character-defining system prompt
+    3. Attempts to automatically create the model in Docker Ollama
+    4. Falls back to manual instructions if Docker commands fail
+    
+    The Modelfile is saved to checkpoints/ directory and then copied into
+    the Ollama container. The model is created using `ollama create`.
+    
+    Returns:
+        Dictionary with status and details:
+        - {"status": "success", "message": <msg>, "modelfile": <path>, "output": <stdout>}
+        - {"status": "ready", "message": <msg>, "modelfile": <path>, "steps": [<instructions>]}
+        - {"status": "error", "message": <error_message>}
+        
+    Example:
+        >>> create_trained_model()
+        {
+            "status": "success",
+            "message": "Model 'mad-hatter' created successfully!",
+            "modelfile": "checkpoints/mad-hatter.modelfile"
+        }
+    """
     try:
         from training import create_trained_model_via_api
         
@@ -524,13 +897,31 @@ def create_trained_model() -> Dict:
 
 @app.route('/')
 def index():
-    """Main page."""
+    """
+    Serve the main web UI page.
+    
+    Returns:
+        Rendered HTML template (index.html) with the demo interface
+    """
     return render_template('index.html')
 
 
 @app.route('/api/query', methods=['POST'])
 def query():
-    """Run agent query with specified model."""
+    """
+    Run an agent query with the specified model.
+    
+    Accepts a JSON request with:
+    - query: The user's question or request
+    - model: Optional model name (default: BASE_MODEL)
+    
+    Returns:
+        JSON response with agent execution results:
+        - final_answer: The agent's final response
+        - steps: List of agent steps (tool calls, responses)
+        - model: Model used
+        - usage: Token usage statistics
+    """
     data = request.json
     query_text = data.get("query", "")
     model = data.get("model", BASE_MODEL)
@@ -543,25 +934,71 @@ def query():
 
 @app.route('/api/models', methods=['GET'])
 def models():
-    """Get available models."""
+    """
+    Get list of available models in Ollama.
+    
+    Returns:
+        JSON response with model availability status:
+        - base: Boolean for BASE_MODEL availability
+        - trained: Boolean for TRAINED_MODEL availability
+        - all_models: List of all available model names
+    """
     return jsonify(check_models())
 
 
 @app.route('/api/training/prepare', methods=['POST'])
 def prepare_data():
-    """Prepare training data from Alice in Wonderland."""
+    """
+    Prepare training data by extracting Mad Hatter dialogue.
+    
+    Extracts character dialogue from alice_in_wonderland.txt and saves it
+    as JSONL format for model training.
+    
+    Returns:
+        JSON response with extraction results:
+        - status: "success" or "error"
+        - examples: Number of examples extracted (if successful)
+        - file: Path to saved training data file (if successful)
+        - message: Error message (if error)
+    """
     return jsonify(prepare_training_data())
 
 
 @app.route('/api/training/create', methods=['POST'])
 def create_model():
-    """Create trained model."""
+    """
+    Create the trained model using the generated Modelfile.
+    
+    Generates a Modelfile and attempts to create the model in Ollama.
+    May return manual instructions if automatic creation fails.
+    
+    Returns:
+        JSON response with creation status and details (see create_trained_model())
+    """
     return jsonify(create_trained_model())
 
 
 @app.route('/api/compare', methods=['POST'])
 def compare_models():
-    """Compare responses from base and trained models with metrics."""
+    """
+    Compare responses from base and trained models with evaluation metrics.
+    
+    Runs the same query through both models and calculates:
+    - Token usage for each model
+    - Response analysis (word count, character count, etc.)
+    - Similarity metrics (ROUGE-1, ROUGE-2, ROUGE-L, BLEU, Jaccard)
+    - Character trait detection
+    
+    Accepts JSON request with:
+    - query: The question/request to compare
+    
+    Returns:
+        JSON response with:
+        - query: The original query
+        - base_model: Response, usage, and analysis for base model
+        - trained_model: Response, usage, and analysis for trained model
+        - differences: Token/word differences and similarity metrics
+    """
     data = request.json
     query_text = data.get("query", "")
     
@@ -610,5 +1047,13 @@ def compare_models():
 
 
 if __name__ == "__main__":
+    """
+    Start the Flask development server.
+    
+    The server runs on all interfaces (0.0.0.0) on port 5000, making it
+    accessible from the host machine when running in Docker.
+    
+    Debug mode is enabled for development (auto-reload on code changes).
+    """
     app.run(host="0.0.0.0", port=5000, debug=True)
 

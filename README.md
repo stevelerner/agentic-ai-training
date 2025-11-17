@@ -109,20 +109,41 @@ http://localhost:8000
 
 ## Files
 
-**Core Files:**
-- `server.py`: Web server, agent logic, training API (Docker-only setup)
-- `server-metal.py`: Extended server with Metal GPU support and native Ollama detection
-- `training.py`: Model creation and training functions
-- `data_processor.py`: Extract character dialogue from text
-- `docker-compose.yml`: Container orchestration
-- `Dockerfile`: Web service container
+**Python Files:**
+- `server.py`: Main Flask web server implementing the agentic AI demo. Contains:
+  - `TrainingAgent` class implementing the ReAct pattern (Reason → Act → Observe)
+  - Tool definitions (`calculate`, `save_file`) for agent actions
+  - API endpoints for model queries, training, and comparison
+  - Response analysis functions (ROUGE, BLEU, Jaccard similarity metrics)
+  - Model management (checking availability, creating trained models)
+  - Token usage tracking and evaluation metrics calculation
+- `training.py`: Model training module for creating custom Ollama models. Contains:
+  - Functions to load training data from JSONL format
+  - Modelfile generation with character-defining system prompts
+  - Integration with Ollama API for model creation
+  - Command-line interface for standalone model creation
+- `data_processor.py`: Data extraction module for preparing training data. Contains:
+  - Regex patterns to extract Mad Hatter dialogue from Alice in Wonderland text
+  - Handles various dialogue attribution formats (curly quotes, straight quotes)
+  - Converts extracted dialogue to instruction-response pairs
+  - Saves training examples in JSONL format for model training
+- `native-ollama-metal/server-metal.py`: Alternative server with Metal GPU support (optional). Contains:
+  - Extended server functionality for native Ollama installations
+  - Metal GPU detection and status checking
+  - Support for both Docker and native Ollama setups
+
+**Configuration Files:**
+- `docker-compose.yml`: Container orchestration (Ollama and web services)
+- `Dockerfile`: Web service container build configuration
+- `requirements.txt`: Python dependencies (Flask, requests)
 - `templates/index.html`: Web UI with model comparison, token usage, and similarity metrics
 
 **Scripts:**
 - `run.sh`: Quick start script (handles errors gracefully, pauses before exit)
 - `create-model.sh`: Create trained model in Docker Ollama (run from host)
 - `cleanup.sh`: Clean up containers and volumes
-- `server-metal.py`: Alternative server with Metal GPU support (optional)
+- `native-ollama-metal/run-with-native-ollama.sh`: Alternative startup for native Ollama with Metal GPU
+- `native-ollama-metal/create-model-native.sh`: Create model in native Ollama installation
 
 **Data:**
 - `alice_in_wonderland.txt`: Source text for training
