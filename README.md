@@ -6,7 +6,7 @@ A minimal demonstration of agentic AI and model training using Alice in Wonderla
 
 **Agentic AI:**
 - ReAct pattern (Reason → Act → Observe loop)
-- Tool calling (calculate, save_file)
+- Tool calling (calculate)
 - Model switching (base vs trained)
 
 **Model Training:**
@@ -72,9 +72,9 @@ http://localhost:8000
 **Agentic AI (This Demo):**
 - Multi-step reasoning loop (ReAct pattern)
 - Decides when to use tools autonomously
-- Executes actions (calculate, save files)
+- Executes actions (calculate)
 - Observes results and adapts
-- Example: "Ask the Mad Hatter what time it is, calculate 6 o'clock in minutes, and save the result" → Queries trained model → Gets "It's always six o'clock!" → Calculates 6 * 60 = 360 → Saves to file → Confirms completion
+- Example: "Ask the Mad Hatter what time it is, then calculate 6 o'clock in minutes" → Queries trained model → Gets "It's always six o'clock!" → Calculates 6 * 60 = 360 → Provides answer
 
 **Key Difference:**
 - Agentic: Can take actions, use tools, iterate until task complete
@@ -112,7 +112,7 @@ http://localhost:8000
 **Python Files:**
 - `server.py`: Main Flask web server implementing the agentic AI demo. Contains:
   - `TrainingAgent` class implementing the ReAct pattern (Reason → Act → Observe)
-  - Tool definitions (`calculate`, `save_file`) for agent actions
+  - Tool definitions (`calculate`) for agent actions
   - API endpoints for model queries, training, and comparison
   - Response analysis functions (ROUGE, BLEU, Jaccard similarity metrics)
   - Model management (checking availability, creating trained models)

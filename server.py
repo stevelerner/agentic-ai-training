@@ -3,7 +3,7 @@
 Training Demo Server - Demonstrates agentic AI and model training.
 
 This Flask web server provides a complete demonstration of:
-1. Agentic AI: An agent that uses tools (calculate, save_file) following the ReAct pattern
+1. Agentic AI: An agent that uses tools (calculate) following the ReAct pattern
    (Reason → Act → Observe loop)
 2. Model Training: Creating custom Ollama models with character-specific behavior
 3. Model Comparison: Comparing base and trained models using standard NLP evaluation metrics
@@ -83,45 +83,11 @@ def calculate(expression: str) -> Dict[str, Any]:
         return {"error": str(e)}
 
 
-def save_file(filename: str, content: str) -> Dict[str, str]:
-    """
-    Save content to a file in the outputs directory.
-    
-    This tool allows the agent to persist data to disk. All files are saved
-    in the "outputs" directory, which is mounted as a volume in Docker.
-    
-    Args:
-        filename: Name of the file to create (e.g., "result.txt")
-        content: Content to write to the file
-        
-    Returns:
-        Dictionary with either:
-        - {"status": "success", "message": <path>} on success
-        - {"status": "error", "message": <error_message>} on failure
-        
-    Example:
-        >>> save_file("result.txt", "The answer is 100")
-        {"status": "success", "message": "Saved to outputs/result.txt"}
-    """
-    try:
-        os.makedirs("outputs", exist_ok=True)
-        with open(f"outputs/{filename}", 'w') as f:
-            f.write(content)
-        return {"status": "success", "message": f"Saved to outputs/{filename}"}
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
-
-
 TOOLS = {
     "calculate": {
         "function": calculate,
         "description": "Evaluate a mathematical expression",
         "parameters": {"expression": "str"}
-    },
-    "save_file": {
-        "function": save_file,
-        "description": "Save content to a file",
-        "parameters": {"filename": "str", "content": "str"}
     }
 }
 
@@ -135,7 +101,7 @@ class TrainingAgent:
     Agent that implements the ReAct pattern (Reason → Act → Observe).
     
     This agent can:
-    - Use tools (calculate, save_file) to accomplish tasks
+    - Use tools (calculate) to accomplish tasks
     - Switch between base and trained models
     - Maintain conversation context across tool calls
     - Track token usage and generation time
@@ -322,9 +288,8 @@ class TrainingAgent:
         if model == TRAINED_MODEL:
             # For character model, add tool instructions to user message instead of system
             # This preserves the model's character-defining system prompt
-            enhanced_query = f"""You have access to these tools:
-- calculate(expression): Evaluate math expressions  
-- save_file(filename, content): Save content to file
+            enhanced_query = f"""You have access to this tool:
+- calculate(expression): Evaluate math expressions
 
 When you need to use a tool, respond with ONLY this JSON format:
 {{"tool": "tool_name", "arguments": {{"arg1": "value1"}}}}
@@ -341,7 +306,6 @@ User query: {user_query}"""
 
 Available tools:
 - calculate(expression): Evaluate math expressions
-- save_file(filename, content): Save content to file
 
 When you need to use a tool, respond with ONLY this JSON format:
 {"tool": "tool_name", "arguments": {"arg1": "value1"}}
