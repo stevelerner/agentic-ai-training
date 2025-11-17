@@ -497,33 +497,88 @@
                     html += `<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 15px;">`;
                     
                     // ROUGE-1
+                    const rouge1 = metrics.rouge_1 || 0;
+                    let rouge1Conclusion = '';
+                    if (rouge1 < 20) {
+                        rouge1Conclusion = 'This low score indicates the models use very different vocabulary, with minimal word overlap.';
+                    } else if (rouge1 < 40) {
+                        rouge1Conclusion = 'This moderate score shows some shared vocabulary, but the models still use distinct word choices.';
+                    } else if (rouge1 < 60) {
+                        rouge1Conclusion = 'This score indicates significant word overlap, suggesting the models share much of their vocabulary.';
+                    } else {
+                        rouge1Conclusion = 'This high score shows extensive word overlap, indicating very similar vocabulary usage between models.';
+                    }
                     html += `<div style="padding: 10px; background: white; border-radius: 4px;">`;
-                    html += `<div style="font-size: 13px; margin-bottom: 5px;"><a href="https://en.wikipedia.org/wiki/ROUGE_(metric)" target="_blank" style="color: #4a90e2; text-decoration: none; font-weight: bold;">ROUGE-1</a>: <strong>${metrics.rouge_1 || 0}%</strong></div>`;
-                    html += `<div style="font-size: 11px; color: #666; line-height: 1.4;">Measures unigram (single word) overlap between responses. Higher scores indicate more shared words.</div>`;
+                    html += `<div style="font-size: 13px; margin-bottom: 5px;"><a href="https://en.wikipedia.org/wiki/ROUGE_(metric)" target="_blank" style="color: #4a90e2; text-decoration: none; font-weight: bold;">ROUGE-1</a>: <strong>${rouge1}%</strong></div>`;
+                    html += `<div style="font-size: 11px; color: #666; line-height: 1.4;">Measures unigram (single word) overlap between responses. Higher scores indicate more shared words. ${rouge1Conclusion}</div>`;
                     html += `</div>`;
                     
                     // ROUGE-2
+                    const rouge2 = metrics.rouge_2 || 0;
+                    let rouge2Conclusion = '';
+                    if (rouge2 < 15) {
+                        rouge2Conclusion = 'This low score shows the models rarely use the same 2-word phrases, indicating distinct phrasing styles.';
+                    } else if (rouge2 < 30) {
+                        rouge2Conclusion = 'This moderate score indicates some shared phrases, but the models generally phrase things differently.';
+                    } else if (rouge2 < 50) {
+                        rouge2Conclusion = 'This score shows notable phrase overlap, suggesting similar phrasing patterns between models.';
+                    } else {
+                        rouge2Conclusion = 'This high score indicates extensive shared phrases, showing very similar phrasing between models.';
+                    }
                     html += `<div style="padding: 10px; background: white; border-radius: 4px;">`;
-                    html += `<div style="font-size: 13px; margin-bottom: 5px;"><a href="https://en.wikipedia.org/wiki/ROUGE_(metric)" target="_blank" style="color: #4a90e2; text-decoration: none; font-weight: bold;">ROUGE-2</a>: <strong>${metrics.rouge_2 || 0}%</strong></div>`;
-                    html += `<div style="font-size: 11px; color: #666; line-height: 1.4;">Measures bigram (2-word phrase) overlap. Higher scores indicate more shared phrases and word pairs.</div>`;
+                    html += `<div style="font-size: 13px; margin-bottom: 5px;"><a href="https://en.wikipedia.org/wiki/ROUGE_(metric)" target="_blank" style="color: #4a90e2; text-decoration: none; font-weight: bold;">ROUGE-2</a>: <strong>${rouge2}%</strong></div>`;
+                    html += `<div style="font-size: 11px; color: #666; line-height: 1.4;">Measures bigram (2-word phrase) overlap. Higher scores indicate more shared phrases and word pairs. ${rouge2Conclusion}</div>`;
                     html += `</div>`;
                     
                     // ROUGE-L
+                    const rougeL = metrics.rouge_l || 0;
+                    let rougeLConclusion = '';
+                    if (rougeL < 20) {
+                        rougeLConclusion = 'This low score indicates very different sentence structures and word ordering between the models.';
+                    } else if (rougeL < 40) {
+                        rougeLConclusion = 'This moderate score shows some structural similarity, but the models organize their thoughts differently.';
+                    } else if (rougeL < 60) {
+                        rougeLConclusion = 'This score indicates similar sentence structures, with comparable word ordering patterns.';
+                    } else {
+                        rougeLConclusion = 'This high score shows very similar sentence structures and word ordering between the models.';
+                    }
                     html += `<div style="padding: 10px; background: white; border-radius: 4px;">`;
-                    html += `<div style="font-size: 13px; margin-bottom: 5px;"><a href="https://en.wikipedia.org/wiki/ROUGE_(metric)" target="_blank" style="color: #4a90e2; text-decoration: none; font-weight: bold;">ROUGE-L</a>: <strong>${metrics.rouge_l || 0}%</strong></div>`;
-                    html += `<div style="font-size: 11px; color: #666; line-height: 1.4;">Measures longest common subsequence, capturing sentence structure and word order similarity.</div>`;
+                    html += `<div style="font-size: 13px; margin-bottom: 5px;"><a href="https://en.wikipedia.org/wiki/ROUGE_(metric)" target="_blank" style="color: #4a90e2; text-decoration: none; font-weight: bold;">ROUGE-L</a>: <strong>${rougeL}%</strong></div>`;
+                    html += `<div style="font-size: 11px; color: #666; line-height: 1.4;">Measures longest common subsequence, capturing sentence structure and word order similarity. ${rougeLConclusion}</div>`;
                     html += `</div>`;
                     
                     // BLEU
+                    const bleu = metrics.bleu || 0;
+                    let bleuConclusion = '';
+                    if (bleu < 15) {
+                        bleuConclusion = 'This low score indicates the trained model produces very different n-gram patterns compared to the base model.';
+                    } else if (bleu < 30) {
+                        bleuConclusion = 'This moderate score shows some n-gram precision overlap, but the models generate text with distinct patterns.';
+                    } else if (bleu < 50) {
+                        bleuConclusion = 'This score indicates notable n-gram precision, suggesting similar text generation patterns.';
+                    } else {
+                        bleuConclusion = 'This high score shows strong n-gram precision, indicating very similar text generation quality and patterns.';
+                    }
                     html += `<div style="padding: 10px; background: white; border-radius: 4px;">`;
-                    html += `<div style="font-size: 13px; margin-bottom: 5px;"><a href="https://en.wikipedia.org/wiki/BLEU" target="_blank" style="color: #4a90e2; text-decoration: none; font-weight: bold;">BLEU</a>: <strong>${metrics.bleu || 0}%</strong></div>`;
-                    html += `<div style="font-size: 11px; color: #666; line-height: 1.4;">Measures n-gram precision with brevity penalty. Standard metric for translation quality evaluation.</div>`;
+                    html += `<div style="font-size: 13px; margin-bottom: 5px;"><a href="https://en.wikipedia.org/wiki/BLEU" target="_blank" style="color: #4a90e2; text-decoration: none; font-weight: bold;">BLEU</a>: <strong>${bleu}%</strong></div>`;
+                    html += `<div style="font-size: 11px; color: #666; line-height: 1.4;">Measures n-gram precision with brevity penalty. Standard metric for translation quality evaluation. ${bleuConclusion}</div>`;
                     html += `</div>`;
                     
                     // Jaccard
+                    const jaccard = metrics.jaccard || 0;
+                    let jaccardConclusion = '';
+                    if (jaccard < 20) {
+                        jaccardConclusion = 'This low score indicates minimal vocabulary overlap, showing the models use very different word sets.';
+                    } else if (jaccard < 40) {
+                        jaccardConclusion = 'This moderate score shows some shared vocabulary, but the models have distinct word choices overall.';
+                    } else if (jaccard < 60) {
+                        jaccardConclusion = 'This score indicates substantial vocabulary overlap, with many shared words between the models.';
+                    } else {
+                        jaccardConclusion = 'This high score shows extensive vocabulary overlap, indicating very similar word usage between models.';
+                    }
                     html += `<div style="grid-column: 1 / -1; padding: 10px; background: white; border-radius: 4px;">`;
-                    html += `<div style="font-size: 13px; margin-bottom: 5px;"><a href="https://en.wikipedia.org/wiki/Jaccard_index" target="_blank" style="color: #4a90e2; text-decoration: none; font-weight: bold;">Jaccard Similarity</a>: <strong>${metrics.jaccard || 0}%</strong></div>`;
-                    html += `<div style="font-size: 11px; color: #666; line-height: 1.4;">Measures word set overlap using intersection over union. Shows overall vocabulary similarity between responses.</div>`;
+                    html += `<div style="font-size: 13px; margin-bottom: 5px;"><a href="https://en.wikipedia.org/wiki/Jaccard_index" target="_blank" style="color: #4a90e2; text-decoration: none; font-weight: bold;">Jaccard Similarity</a>: <strong>${jaccard}%</strong></div>`;
+                    html += `<div style="font-size: 11px; color: #666; line-height: 1.4;">Measures word set overlap using intersection over union. Shows overall vocabulary similarity between responses. ${jaccardConclusion}</div>`;
                     html += `</div>`;
                     
                     html += `</div>`;
