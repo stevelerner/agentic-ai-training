@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Training Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+        }
+        
+        .section {
+            margin-bottom: 40px;
+            padding: 20px;
+            background: #fafafa;
+            border-radius: 6px;
+            border-left: 4px solid #4a90e2;
+        }
+        
+        .section h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+        
+        .section p {
+            color: #555;
+            margin-bottom: 15px;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            padding: 10px 20px;
+            background: #4a90e2;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        button:hover {
+            background: #357abd;
+        }
+        
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        button.secondary {
+            background: #28a745;
+        }
+        
+        button.secondary:hover {
+            background: #218838;
+        }
+        
+        .status {
+            padding: 10px;
+            background: #e9ecef;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            font-family: monospace;
+            font-size: 13px;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .query-box {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+        
+        .model-selector {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .model-selector label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+        }
+        
+        .response {
+            margin-top: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+        
+        .response h3 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+        
+        .response pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        .comparison {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .comparison-item {
+            padding: 15px;
+            background: white;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            width: 100%;
+            box-sizing: border-box;
+            overflow-wrap: break-word;
+            word-wrap: break-word;
+        }
+        
+        .comparison-item h4 {
+            margin-bottom: 10px;
+            color: #4a90e2;
+        }
+        
+        .comparison-item pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            max-width: 100%;
+        }
+        
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin: 15px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+        
+        .metric-item {
+            text-align: center;
+        }
+        
+        .metric-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .metric-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .trait-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            margin: 2px;
+            background: #e3f2fd;
+            color: #1976d2;
+            border-radius: 12px;
+            font-size: 12px;
+        }
+        
+        .trait-badge.active {
+            background: #c8e6c9;
+            color: #2e7d32;
+        }
+        
+        .insights {
+            margin-top: 20px;
+            padding: 15px;
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            border-radius: 4px;
+        }
+        
+        .insights h4 {
+            margin-bottom: 10px;
+            color: #856404;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #4a90e2;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>AI Training Demo</h1>
+        <p class="subtitle">Demonstrating agentic AI and model training with Alice in Wonderland</p>
+        
+        <div class="section">
+            <h2>Training</h2>
+            <p>Extract Mad Hatter dialogue from Alice in Wonderland and create a trained model.</p>
+            <div class="button-group">
+                <button onclick="prepareTrainingData()">1. Prepare Training Data</button>
+                <button onclick="createTrainedModel()" class="secondary">2. Create Trained Model</button>
+            </div>
+            <div id="training-status" class="status" style="display:none;"></div>
+        </div>
+        
+        <div class="section">
+            <h2>Model Status</h2>
+            <div id="model-status" class="status">Checking models...</div>
+        </div>
+        
+        <div class="section">
+            <h2>Model Comparison</h2>
+            <p>Compare responses from base and trained Ollama models.</p>
+            <p style="font-size: 13px; color: #666; margin-top: -10px; margin-bottom: 10px;">Both models are Ollama models: base (llama3.1) and trained (mad-hatter).</p>
+            <input type="text" id="compare-input" class="query-box" placeholder="Enter a question (e.g., 'What time is it?')">
+            <div style="margin: 10px 0; font-size: 13px; color: #666;">
+                <strong>Suggested questions:</strong>
+                <div style="margin-top: 5px; display: flex; flex-direction: column; gap: 5px;">
+                    <button onclick="setCompareQuery('What time is it?')" style="padding: 8px 12px; font-size: 13px; background: #e9ecef; color: #333; border: 1px solid #ddd; text-align: left; cursor: pointer;">What time is it?</button>
+                    <button onclick="setCompareQuery('Why is a raven like a writing-desk?')" style="padding: 8px 12px; font-size: 13px; background: #e9ecef; color: #333; border: 1px solid #ddd; text-align: left; cursor: pointer;">Why is a raven like a writing-desk?</button>
+                    <button onclick="setCompareQuery('Which is better math or tea?')" style="padding: 8px 12px; font-size: 13px; background: #e9ecef; color: #333; border: 1px solid #ddd; text-align: left; cursor: pointer;">Which is better math or tea?</button>
+                    <button onclick="setCompareQuery('Tell me about yourself')" style="padding: 8px 12px; font-size: 13px; background: #e9ecef; color: #333; border: 1px solid #ddd; text-align: left; cursor: pointer;">Tell me about yourself</button>
+                    <button onclick="setCompareQuery('What\\'s the difference between saying what you mean and meaning what you say?')" style="padding: 8px 12px; font-size: 13px; background: #e9ecef; color: #333; border: 1px solid #ddd; text-align: left; cursor: pointer;">What's the difference between saying what you mean and meaning what you say?</button>
+                    <button onclick="setCompareQuery('Tell me about tea parties')" style="padding: 8px 12px; font-size: 13px; background: #e9ecef; color: #333; border: 1px solid #ddd; text-align: left; cursor: pointer;">Tell me about tea parties</button>
+                </div>
+            </div>
+            <button onclick="compareModels()">Compare Models</button>
+            <div id="compare-response" style="display:none;"></div>
+        </div>
+        
+    </div>
+    
+    <script>
+        async function checkModels() {
+            const statusDiv = document.getElementById('model-status');
+            statusDiv.style.display = 'block';
+            statusDiv.textContent = 'Checking...';
+            
+            try {
+                const response = await fetch('/api/models');
+                const data = await response.json();
+                
+                let status = 'Ollama Models: ';
+                if (data.base) {
+                    status += 'Base Ollama model (llama3.1) available. ';
+                } else {
+                    status += 'Base Ollama model not found. ';
+                }
+                
+                if (data.trained) {
+                    status += 'Trained Ollama model (mad-hatter) available.';
+                } else {
+                    status += 'Trained Ollama model not created yet.';
+                }
+                
+                statusDiv.textContent = status;
+                statusDiv.className = 'status ' + (data.base && data.trained ? 'success' : '');
+            } catch (error) {
+                statusDiv.textContent = 'Error checking models: ' + error.message;
+                statusDiv.className = 'status error';
+            }
+        }
+        
+        async function prepareTrainingData() {
+            const statusDiv = document.getElementById('training-status');
+            statusDiv.style.display = 'block';
+            statusDiv.textContent = 'Preparing training data...';
+            statusDiv.className = 'status';
+            
+            try {
+                const response = await fetch('/api/training/prepare', { method: 'POST' });
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    statusDiv.textContent = `Success! Extracted ${data.examples} training examples.`;
+                    statusDiv.className = 'status success';
+                } else {
+                    statusDiv.textContent = 'Error: ' + data.message;
+                    statusDiv.className = 'status error';
+                }
+            } catch (error) {
+                statusDiv.textContent = 'Error: ' + error.message;
+                statusDiv.className = 'status error';
+            }
+        }
+        
+        async function createTrainedModel() {
+            const statusDiv = document.getElementById('training-status');
+            statusDiv.style.display = 'block';
+            statusDiv.textContent = 'Creating modelfile...';
+            statusDiv.className = 'status';
+            
+            try {
+                const response = await fetch('/api/training/create', { method: 'POST' });
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    let html = '<strong>' + data.message + '</strong>';
+                    if (data.output) {
+                        html += '<br><br><pre style="background:#f8f9fa;padding:10px;border-radius:4px;overflow-x:auto;font-size:12px;">' + data.output + '</pre>';
+                    }
+                    statusDiv.innerHTML = html;
+                    statusDiv.className = 'status success';
+                    // Automatically check models after creation
+                    setTimeout(checkModels, 1000);
+                } else if (data.status === 'ready') {
+                    let html = '<strong>Modelfile created!</strong><br><br>';
+                    html += data.message + '<br><br>';
+                    if (data.error) {
+                        html += '<span style="color:#721c24;">Error: ' + data.error + '</span><br><br>';
+                    }
+                    if (data.steps) {
+                        html += 'Run these commands from your host machine:<br><br>';
+                        data.steps.forEach(step => {
+                            html += '<code style="display:block;margin:5px 0;padding:5px;background:#f8f9fa;border-radius:3px;">' + step + '</code>';
+                        });
+                    }
+                    statusDiv.innerHTML = html;
+                    statusDiv.className = 'status';
+                    // Automatically check models after modelfile creation
+                    setTimeout(checkModels, 1000);
+                } else {
+                    statusDiv.textContent = 'Error: ' + data.message;
+                    statusDiv.className = 'status error';
+                }
+            } catch (error) {
+                statusDiv.textContent = 'Error: ' + error.message;
+                statusDiv.className = 'status error';
+            }
+        }
+        
+        function setCompareQuery(text) {
+            document.getElementById('compare-input').value = text;
+        }
+        
+        async function compareModels() {
+            const query = document.getElementById('compare-input').value;
+            const responseDiv = document.getElementById('compare-response');
+            
+            if (!query) {
+                alert('Please enter a query');
+                return;
+            }
+            
+            responseDiv.style.display = 'block';
+            responseDiv.innerHTML = '<div class="loading"></div> Comparing models...';
+            
+            try {
+                const response = await fetch('/api/compare', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query })
+                });
+                
+                const data = await response.json();
+                
+                let html = '<div class="comparison">';
+                
+                // Base Model - Response FIRST
+                html += `<div class="comparison-item">
+                    <h4>Base Ollama Model (${data.base_model.model})</h4>`;
+                html += `<pre>${data.base_model.response}</pre>`;
+                
+                // Base model metrics AFTER response
+                if (data.base_model.usage) {
+                    const usage = data.base_model.usage;
+                    const evalTime = usage.eval_duration_ns ? (usage.eval_duration_ns / 1000000000).toFixed(2) : 'N/A';
+                    html += `<div style="margin-top: 20px; padding-top: 15px; border-top: 2px solid #ddd;">`;
+                    html += `<h5 style="margin-bottom: 10px; color: #333;">Token Usage & Statistics</h5>`;
+                    html += `<div class="metrics">`;
+                    html += `<div class="metric-item"><div class="metric-label">Total Tokens</div><div class="metric-value">${usage.total_tokens || 0}</div></div>`;
+                    html += `<div class="metric-item"><div class="metric-label">Prompt</div><div class="metric-value">${usage.prompt_tokens || 0}</div></div>`;
+                    html += `<div class="metric-item"><div class="metric-label">Completion</div><div class="metric-value">${usage.completion_tokens || 0}</div></div>`;
+                    html += `<div class="metric-item"><div class="metric-label">Time</div><div class="metric-value">${evalTime}s</div></div>`;
+                    html += `</div>`;
+                    html += `</div>`;
+                }
+                
+                // Base model analysis
+                if (data.base_model.analysis) {
+                    const analysis = data.base_model.analysis;
+                    html += `<div style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 4px;">`;
+                    html += `<div style="font-size: 13px; margin-bottom: 8px;"><strong>Word Count:</strong> ${analysis.word_count} words</div>`;
+                    html += `<div style="font-size: 13px;">`;
+                    html += `<span class="trait-badge ${analysis.has_time_reference ? 'active' : ''}">Time</span>`;
+                    html += `<span class="trait-badge ${analysis.has_tea_reference ? 'active' : ''}">Tea</span>`;
+                    html += `<span class="trait-badge ${analysis.has_riddle ? 'active' : ''}">Riddle</span>`;
+                    html += `</div>`;
+                    html += `</div>`;
+                }
+                
+                html += `</div>`;
+                
+                // Trained Model - Response FIRST
+                html += `<div class="comparison-item">
+                    <h4>Trained Ollama Model (${data.trained_model.model})</h4>`;
+                html += `<pre>${data.trained_model.response}</pre>`;
+                
+                // Trained model metrics AFTER response
+                if (data.trained_model.usage) {
+                    const usage = data.trained_model.usage;
+                    const evalTime = usage.eval_duration_ns ? (usage.eval_duration_ns / 1000000000).toFixed(2) : 'N/A';
+                    html += `<div style="margin-top: 20px; padding-top: 15px; border-top: 2px solid #ddd;">`;
+                    html += `<h5 style="margin-bottom: 10px; color: #333;">Token Usage & Statistics</h5>`;
+                    html += `<div class="metrics">`;
+                    html += `<div class="metric-item"><div class="metric-label">Total Tokens</div><div class="metric-value">${usage.total_tokens || 0}</div></div>`;
+                    html += `<div class="metric-item"><div class="metric-label">Prompt</div><div class="metric-value">${usage.prompt_tokens || 0}</div></div>`;
+                    html += `<div class="metric-item"><div class="metric-label">Completion</div><div class="metric-value">${usage.completion_tokens || 0}</div></div>`;
+                    html += `<div class="metric-item"><div class="metric-label">Time</div><div class="metric-value">${evalTime}s</div></div>`;
+                    html += `</div>`;
+                    html += `</div>`;
+                }
+                
+                // Trained model analysis
+                if (data.trained_model.analysis) {
+                    const analysis = data.trained_model.analysis;
+                    html += `<div style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 4px;">`;
+                    html += `<div style="font-size: 13px; margin-bottom: 8px;"><strong>Word Count:</strong> ${analysis.word_count} words <span style="color: ${data.differences?.word_diff > 0 ? '#28a745' : data.differences?.word_diff < 0 ? '#dc3545' : '#666'}">(${data.differences?.word_diff > 0 ? '+' : ''}${data.differences?.word_diff || 0})</span></div>`;
+                    html += `<div style="font-size: 13px; margin-top: 10px;">`;
+                    html += `<span class="trait-badge ${analysis.has_time_reference ? 'active' : ''}">Time</span>`;
+                    html += `<span class="trait-badge ${analysis.has_tea_reference ? 'active' : ''}">Tea</span>`;
+                    html += `<span class="trait-badge ${analysis.has_riddle ? 'active' : ''}">Riddle</span>`;
+                    html += `</div>`;
+                    html += `</div>`;
+                }
+                
+                // Standard evaluation metrics (similarity to base model) - AFTER response and stats
+                if (data.differences?.similarity_metrics) {
+                    const metrics = data.differences.similarity_metrics;
+                    html += `<div style="margin-top: 20px; padding: 15px; background: #e8f4f8; border-radius: 4px; border-left: 4px solid #4a90e2;">`;
+                    html += `<h5 style="margin-bottom: 10px; color: #333;">Comparison of Trained Model to Base Model using Similarity Metrics</h5>`;
+                    html += `<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 15px;">`;
+                    
+                    // ROUGE-1
+                    const rouge1 = metrics.rouge_1 || 0;
+                    let rouge1Conclusion = '';
+                    if (rouge1 < 20) {
+                        rouge1Conclusion = 'This low score indicates the models use very different vocabulary, with minimal word overlap.';
+                    } else if (rouge1 < 40) {
+                        rouge1Conclusion = 'This moderate score shows some shared vocabulary, but the models still use distinct word choices.';
+                    } else if (rouge1 < 60) {
+                        rouge1Conclusion = 'This score indicates significant word overlap, suggesting the models share much of their vocabulary.';
+                    } else {
+                        rouge1Conclusion = 'This high score shows extensive word overlap, indicating very similar vocabulary usage between models.';
+                    }
+                    html += `<div style="padding: 10px; background: white; border-radius: 4px;">`;
+                    html += `<div style="font-size: 13px; margin-bottom: 5px;"><a href="https://en.wikipedia.org/wiki/ROUGE_(metric)" target="_blank" style="color: #4a90e2; text-decoration: none; font-weight: bold;">ROUGE-1</a>: <strong>${rouge1}%</strong></div>`;
+                    html += `<div style="font-size: 11px; color: #666; line-height: 1.4;">Measures unigram (single word) overlap between responses. Higher scores indicate more shared words. ${rouge1Conclusion}</div>`;
+                    html += `</div>`;
+                    
+                    // ROUGE-2
+                    const rouge2 = metrics.rouge_2 || 0;
+                    let rouge2Conclusion = '';
+                    if (rouge2 < 15) {
+                        rouge2Conclusion = 'This low score shows the models rarely use the same 2-word phrases, indicating distinct phrasing styles.';
+                    } else if (rouge2 < 30) {
+                        rouge2Conclusion = 'This moderate score indicates some shared phrases, but the models generally phrase things differently.';
+                    } else if (rouge2 < 50) {
+                        rouge2Conclusion = 'This score shows notable phrase overlap, suggesting similar phrasing patterns between models.';
+                    } else {
+                        rouge2Conclusion = 'This high score indicates extensive shared phrases, showing very similar phrasing between models.';
+                    }
+                    html += `<div style="padding: 10px; background: white; border-radius: 4px;">`;
+                    html += `<div style="font-size: 13px; margin-bottom: 5px;"><a href="https://en.wikipedia.org/wiki/ROUGE_(metric)" target="_blank" style="color: #4a90e2; text-decoration: none; font-weight: bold;">ROUGE-2</a>: <strong>${rouge2}%</strong></div>`;
+                    html += `<div style="font-size: 11px; color: #666; line-height: 1.4;">Measures bigram (2-word phrase) overlap. Higher scores indicate more shared phrases and word pairs. ${rouge2Conclusion}</div>`;
+                    html += `</div>`;
+                    
+                    // ROUGE-L
+                    const rougeL = metrics.rouge_l || 0;
+                    let rougeLConclusion = '';
+                    if (rougeL < 20) {
+                        rougeLConclusion = 'This low score indicates very different sentence structures and word ordering between the models.';
+                    } else if (rougeL < 40) {
+                        rougeLConclusion = 'This moderate score shows some structural similarity, but the models organize their thoughts differently.';
+                    } else if (rougeL < 60) {
+                        rougeLConclusion = 'This score indicates similar sentence structures, with comparable word ordering patterns.';
+                    } else {
+                        rougeLConclusion = 'This high score shows very similar sentence structures and word ordering between the models.';
+                    }
+                    html += `<div style="padding: 10px; background: white; border-radius: 4px;">`;
+                    html += `<div style="font-size: 13px; margin-bottom: 5px;"><a href="https://en.wikipedia.org/wiki/ROUGE_(metric)" target="_blank" style="color: #4a90e2; text-decoration: none; font-weight: bold;">ROUGE-L</a>: <strong>${rougeL}%</strong></div>`;
+                    html += `<div style="font-size: 11px; color: #666; line-height: 1.4;">Measures longest common subsequence, capturing sentence structure and word order similarity. ${rougeLConclusion}</div>`;
+                    html += `</div>`;
+                    
+                    // BLEU
+                    const bleu = metrics.bleu || 0;
+                    let bleuConclusion = '';
+                    if (bleu < 15) {
+                        bleuConclusion = 'This low score indicates the trained model produces very different n-gram patterns compared to the base model.';
+                    } else if (bleu < 30) {
+                        bleuConclusion = 'This moderate score shows some n-gram precision overlap, but the models generate text with distinct patterns.';
+                    } else if (bleu < 50) {
+                        bleuConclusion = 'This score indicates notable n-gram precision, suggesting similar text generation patterns.';
+                    } else {
+                        bleuConclusion = 'This high score shows strong n-gram precision, indicating very similar text generation quality and patterns.';
+                    }
+                    html += `<div style="padding: 10px; background: white; border-radius: 4px;">`;
+                    html += `<div style="font-size: 13px; margin-bottom: 5px;"><a href="https://en.wikipedia.org/wiki/BLEU" target="_blank" style="color: #4a90e2; text-decoration: none; font-weight: bold;">BLEU</a>: <strong>${bleu}%</strong></div>`;
+                    html += `<div style="font-size: 11px; color: #666; line-height: 1.4;">Measures n-gram precision with brevity penalty. Standard metric for translation quality evaluation. ${bleuConclusion}</div>`;
+                    html += `</div>`;
+                    
+                    // Jaccard
+                    const jaccard = metrics.jaccard || 0;
+                    let jaccardConclusion = '';
+                    if (jaccard < 20) {
+                        jaccardConclusion = 'This low score indicates minimal vocabulary overlap, showing the models use very different word sets.';
+                    } else if (jaccard < 40) {
+                        jaccardConclusion = 'This moderate score shows some shared vocabulary, but the models have distinct word choices overall.';
+                    } else if (jaccard < 60) {
+                        jaccardConclusion = 'This score indicates substantial vocabulary overlap, with many shared words between the models.';
+                    } else {
+                        jaccardConclusion = 'This high score shows extensive vocabulary overlap, indicating very similar word usage between models.';
+                    }
+                    html += `<div style="grid-column: 1 / -1; padding: 10px; background: white; border-radius: 4px;">`;
+                    html += `<div style="font-size: 13px; margin-bottom: 5px;"><a href="https://en.wikipedia.org/wiki/Jaccard_index" target="_blank" style="color: #4a90e2; text-decoration: none; font-weight: bold;">Jaccard Similarity</a>: <strong>${jaccard}%</strong></div>`;
+                    html += `<div style="font-size: 11px; color: #666; line-height: 1.4;">Measures word set overlap using intersection over union. Shows overall vocabulary similarity between responses. ${jaccardConclusion}</div>`;
+                    html += `</div>`;
+                    
+                    html += `</div>`;
+                    
+                    // Conclusion/Interpretation merged with insights
+                    const avgSimilarity = (metrics.rouge_1 + metrics.rouge_2 + metrics.rouge_l + metrics.bleu + metrics.jaccard) / 5;
+                    html += `<div style="margin-top: 15px; padding: 12px; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px;">`;
+                    html += `<strong style="color: #856404;">Conclusions & Insights:</strong><ul style="margin: 10px 0 0 0; padding-left: 20px; color: #856404;">`;
+                    
+                    // Similarity interpretation
+                    if (avgSimilarity < 20) {
+                        html += `<li>The trained model produces <strong>very different</strong> responses from the base model (${avgSimilarity.toFixed(1)}% average similarity). This indicates the training successfully changed the model's behavior, making it respond in a distinct, character-specific manner.</li>`;
+                    } else if (avgSimilarity < 40) {
+                        html += `<li>The trained model produces <strong>moderately different</strong> responses from the base model (${avgSimilarity.toFixed(1)}% average similarity). The training has influenced the model's output, showing some character-specific traits while maintaining some similarity to the base.</li>`;
+                    } else if (avgSimilarity < 60) {
+                        html += `<li>The trained model shows <strong>moderate similarity</strong> to the base model (${avgSimilarity.toFixed(1)}% average similarity). While there are differences, the responses share significant overlap in vocabulary and structure.</li>`;
+                    } else {
+                        html += `<li>The trained model produces <strong>similar</strong> responses to the base model (${avgSimilarity.toFixed(1)}% average similarity). The training had limited effect on changing the model's output style.</li>`;
+                    }
+                    
+                    // Additional insights
+                    if (data.differences.token_diff !== 0) {
+                        const tokenDiff = data.differences.token_diff;
+                        html += `<li>Token usage difference: <strong>${tokenDiff > 0 ? '+' : ''}${tokenDiff} tokens</strong> (${tokenDiff > 0 ? 'trained used more' : 'trained used fewer'}).</li>`;
+                    }
+                    
+                    if (data.differences.word_diff !== 0) {
+                        const wordDiff = data.differences.word_diff;
+                        html += `<li>Response length difference: <strong>${wordDiff > 0 ? '+' : ''}${wordDiff} words</strong> (${wordDiff > 0 ? 'trained is longer' : 'trained is shorter'}).</li>`;
+                    }
+                    
+                    if (data.trained_model.analysis?.has_time_reference && !data.base_model.analysis?.has_time_reference) {
+                        html += `<li>✓ Trained model references time/tea time (characteristic of Mad Hatter).</li>`;
+                    }
+                    
+                    if (data.trained_model.analysis?.has_riddle && !data.base_model.analysis?.has_riddle) {
+                        html += `<li>✓ Trained model includes riddles (characteristic of Mad Hatter).</li>`;
+                    }
+                    
+                    html += `</ul></div>`;
+                    html += `</div>`;
+                }
+                
+                html += `</div>`;
+                html += '</div>';
+                
+                responseDiv.innerHTML = html;
+            } catch (error) {
+                responseDiv.innerHTML = '<div class="status error">Error: ' + error.message + '</div>';
+            }
+        }
+        
+        // Automatically check models on page load
+        checkModels();
+    </script>
+</body>
+</html>
+
