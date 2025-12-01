@@ -44,50 +44,59 @@ app = Flask(__name__)
 
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://ollama:11434")
 BASE_MODEL = "llama3.1"
-TRAINED_MODEL = "mad-hatter"
+TRAINED_MODEL = "sherlock-holmes"
 
 
 # ============================================================================
 # TOOL DEFINITIONS
 # ============================================================================
 
-def calculate(expression: str) -> Dict[str, Any]:
+def inspect_scene(location: str) -> Dict[str, Any]:
     """
-    Evaluate a mathematical expression safely.
-    
-    This tool allows the agent to perform mathematical calculations. It uses
-    a whitelist approach to ensure only safe mathematical operations are allowed.
-    
-    Args:
-        expression: Mathematical expression as a string (e.g., "25 * 4", "10 + 5")
-        
-    Returns:
-        Dictionary with either:
-        - {"result": <number>} on success
-        - {"error": <error_message>} on failure
-        
-    Example:
-        >>> calculate("25 * 4")
-        {"result": 100}
-        >>> calculate("10 + 5 - 3")
-        {"result": 12}
+    Inspect a location for clues.
     """
-    try:
-        # Whitelist approach: only allow safe mathematical characters
-        allowed_chars = set('0123456789+-*/(). ')
-        if not all(c in allowed_chars for c in expression):
-            return {"error": "Invalid characters in expression"}
-        result = eval(expression)
-        return {"result": result}
-    except Exception as e:
-        return {"error": str(e)}
+    clues = {
+        "The Garden": "You find footprints in the mud leading to the greenhouse.",
+        "The Greenhouse": "A shattered pot and a missing rare orchid.",
+        "The Study": "A half-finished cup of tea and a muddy boot print on the rug.",
+        "The Kitchen": "The cook is missing, and a knife is on the floor."
+    }
+    return {"result": clues.get(location, "You see nothing of interest here.")}
+
+def interview_suspect(name: str) -> Dict[str, Any]:
+    """
+    Question a suspect.
+    """
+    testimonies = {
+        "The Gardener": "I was pruning the roses all morning. I saw nothing!",
+        "The Cook": "I heard a crash from the greenhouse, but I was too scared to look.",
+        "The Butler": "I was polishing the silver in the dining room.",
+        "The Maid": "I saw a tall figure running towards the gate."
+    }
+    return {"result": testimonies.get(name, "I have nothing to say to you.")}
+
+def consult_archives(query: str) -> Dict[str, Any]:
+    """
+    Search for information in the archives.
+    """
+    return {"result": f"Records show a similar theft occurred 5 years ago involving a {query}."}
 
 
 TOOLS = {
-    "calculate": {
-        "function": calculate,
-        "description": "Evaluate a mathematical expression",
-        "parameters": {"expression": "str"}
+    "inspect_scene": {
+        "function": inspect_scene,
+        "description": "Inspect a location for clues",
+        "parameters": {"location": "str"}
+    },
+    "interview_suspect": {
+        "function": interview_suspect,
+        "description": "Question a suspect",
+        "parameters": {"name": "str"}
+    },
+    "consult_archives": {
+        "function": consult_archives,
+        "description": "Search for information in the archives",
+        "parameters": {"query": "str"}
     }
 }
 
@@ -288,38 +297,37 @@ class TrainingAgent:
         # This overrides the Modelfile's system prompt for this session, but that's necessary
         # to get the model to use tools while staying in character.
         if model == TRAINED_MODEL:
-            system_prompt = """You are the Mad Hatter from Alice in Wonderland. 
-You speak in an absurd, time-obsessed, nonsensical manner. 
-You are always at tea time (six o'clock) and make cryptic, 
-philosophical statements.
+            system_prompt = """You are Sherlock Holmes, the world's most famous consulting detective.
+You are currently investigating a case.
+You have access to the following tools:
+- inspect_scene(location: str): Inspect a location for clues.
+- interview_suspect(name: str): Question a suspect.
+- consult_archives(query: str): Search for information in the archives.
 
-You ALSO have access to tools to help with your riddles:
-- calculate(expression): Evaluate math expressions
+When you need to use a tool, output ONLY the JSON for the tool call.
+Example: {"tool": "inspect_scene", "arguments": {"location": "The Garden"}}
 
-When you need to use a tool, respond with ONLY this JSON format:
-{"tool": "tool_name", "arguments": {"arg1": "value1"}}
-
-When you have enough information, provide your final answer without JSON.
-
-Think step by step and use tools when needed."""
+Do not output any other text when using a tool.
+If you have enough information to solve the case, state your conclusion clearly.
+Speak in the style of Sherlock Holmes: logical, precise, and slightly arrogant. Use phrases like "Elementary", "Deduction", "The game is afoot".
+"""
+            # Prepend system prompt to messages
+            messages = [{"role": "system", "content": system_prompt}] + self.conversation_history
+            messages.append({"role": "user", "content": user_query})
         else:
-            # Full agent prompt for base model
-            system_prompt = """You are a helpful AI agent with access to tools.
+            # Base model: Add tool instructions to user query (ReAct style)
+            tool_instructions = """
+You have access to the following tools:
+- inspect_scene(location: str): Inspect a location for clues.
+- interview_suspect(name: str): Question a suspect.
+- consult_archives(query: str): Search for information in the archives.
 
-Available tools:
-- calculate(expression): Evaluate math expressions
-
-When you need to use a tool, respond with ONLY this JSON format:
-{"tool": "tool_name", "arguments": {"arg1": "value1"}}
-
-When you have enough information, provide your final answer without JSON.
-
-Think step by step and use tools when needed."""
-
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_query}
-        ]
+To use a tool, respond with ONLY the JSON for the tool call.
+Example: {"tool": "inspect_scene", "arguments": {"location": "The Garden"}}
+"""
+            messages = self.conversation_history + [
+                {"role": "user", "content": user_query + tool_instructions}
+            ]
         
         steps = []
         total_usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0, "eval_duration_ns": 0, "total_duration_ns": 0}
@@ -609,23 +617,22 @@ def analyze_response(response_text: str, reference_text: Optional[str] = None) -
         result["bleu"] = round(calculate_bleu(reference_text, response_text) * 100, 2)
         result["jaccard_similarity"] = round(calculate_jaccard_similarity(reference_text, response_text) * 100, 2)
     
-    # Character trait detection (for insights, not scoring)
-    text_lower = response_text.lower()
-    character_keywords = {
-        "time": ["time", "o'clock", "clock", "hour", "minute", "tea time"],
-        "tea": ["tea", "tea party", "cup", "saucer"],
-        "riddle": ["riddle", "why is a raven", "writing-desk", "puzzle"],
+    # Character trait detection (Sherlock Holmes)
+    traits = {
+        "deduction": ["deduction", "deduce", "logic", "reasoning", "infer"],
+        "clue": ["clue", "evidence", "trace", "footprint", "fingerprint"],
+        "elementary": ["elementary", "simple", "obvious", "my dear watson"]
     }
     
     detected_traits = {}
-    for trait, keywords in character_keywords.items():
-        count = sum(1 for keyword in keywords if keyword in text_lower)
+    for trait, keywords in traits.items():
+        count = sum(response_text.lower().count(k) for k in keywords)
         detected_traits[trait] = count
-    
+        
     result["detected_traits"] = detected_traits
-    result["has_time_reference"] = detected_traits.get("time", 0) > 0
-    result["has_tea_reference"] = detected_traits.get("tea", 0) > 0
-    result["has_riddle"] = detected_traits.get("riddle", 0) > 0
+    result["has_deduction"] = detected_traits.get("deduction", 0) > 0
+    result["has_clue"] = detected_traits.get("clue", 0) > 0
+    result["has_elementary"] = detected_traits.get("elementary", 0) > 0
     
     return result
 
@@ -674,47 +681,32 @@ def check_models() -> Dict[str, Any]:
 
 def prepare_training_data() -> Dict[str, Any]:
     """
-    Extract Mad Hatter dialogue from Alice in Wonderland text.
+    Generate synthetic Sherlock Holmes mysteries.
     
-    Processes the alice_in_wonderland.txt file to extract dialogue attributed
-    to the Mad Hatter character. The extracted examples are saved as JSONL
-    format for use in model training.
+    Uses the sherlock_data_processor to generate synthetic training examples
+    where Sherlock solves mysteries using tools.
     
     Returns:
         Dictionary with either:
         - {"status": "success", "examples": <count>, "file": <path>} on success
         - {"status": "error", "message": <error_message>} on failure
-        
-    Example:
-        >>> prepare_training_data()
-        {
-            "status": "success",
-            "examples": 43,
-            "file": "training_data/mad_hatter_training.jsonl"
-        }
     """
     try:
-        from data_processor import extract_mad_hatter_dialogue
+        from sherlock_data_processor import generate_sherlock_mysteries, save_training_data
         
-        with open('alice_in_wonderland.txt', 'r', encoding='utf-8') as f:
-            text = f.read()
-        
-        start_marker = "*** START OF THE PROJECT GUTENBERG EBOOK"
-        end_marker = "*** END OF THE PROJECT GUTENBERG EBOOK"
-        
-        start_idx = text.find(start_marker)
-        end_idx = text.find(end_marker)
-        
-        if start_idx != -1 and end_idx != -1:
-            text = text[start_idx:end_idx]
-        
-        examples = extract_mad_hatter_dialogue(text)
+        # Generate 50 synthetic examples
+        examples = generate_sherlock_mysteries(num_examples=50)
         
         os.makedirs("training_data", exist_ok=True)
-        from data_processor import save_training_data
-        save_training_data(examples, "training_data/mad_hatter_training.jsonl")
+        save_training_data(examples, "training_data/sherlock_training.jsonl")
         
         return {
+            "status": "success",
+            "examples": len(examples),
+            "file": "training_data/sherlock_training.jsonl"
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
             "status": "success",
             "examples": len(examples),
             "file": "training_data/mad_hatter_training.jsonl"
@@ -751,9 +743,12 @@ def create_trained_model() -> Dict[str, Any]:
         }
     """
     try:
+        import time
+        start_time = time.time()
+        
         from training import create_trained_model_via_api
         
-        training_data_path = "training_data/mad_hatter_training.jsonl"
+        training_data_path = "training_data/sherlock_training.jsonl"
         if not os.path.exists(training_data_path):
             prep_result = prepare_training_data()
             if prep_result.get("status") != "success":
@@ -766,8 +761,8 @@ def create_trained_model() -> Dict[str, Any]:
         )
         
         # Modelfile is in checkpoints/ which is mounted as volume
-        # Path inside container: /app/checkpoints/mad-hatter.modelfile
-        # Path on host: ./checkpoints/mad-hatter.modelfile (relative to project root)
+        # Path inside container: /app/checkpoints/sherlock-holmes.modelfile
+        # Path on host: ./checkpoints/sherlock-holmes.modelfile (relative to project root)
         
         # Check if model already exists
         try:
@@ -776,10 +771,12 @@ def create_trained_model() -> Dict[str, Any]:
                 models = response.json().get("models", [])
                 model_names = [m.get("name", "") for m in models]
                 if TRAINED_MODEL in model_names:
+                    duration = round(time.time() - start_time, 2)
                     return {
                         "status": "success",
                         "message": f"Model '{TRAINED_MODEL}' already exists",
-                        "modelfile": modelfile_path
+                        "modelfile": modelfile_path,
+                        "duration": duration
                     }
         except:
             pass
@@ -808,12 +805,15 @@ def create_trained_model() -> Dict[str, Any]:
                 "-f", f"/root/.ollama/{TRAINED_MODEL}.modelfile"
             ], capture_output=True, text=True, timeout=120)
             
+            duration = round(time.time() - start_time, 2)
+            
             if create_result.returncode == 0:
                 return {
                     "status": "success",
                     "message": f"Model '{TRAINED_MODEL}' created successfully!",
                     "modelfile": modelfile_path,
-                    "output": create_result.stdout
+                    "output": create_result.stdout,
+                    "duration": duration
                 }
             else:
                 # Docker commands failed, provide manual instructions

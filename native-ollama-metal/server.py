@@ -12,37 +12,32 @@ from typing import Optional, Dict, Any, List, Tuple
 from flask import Flask, render_template, request, jsonify, Response
 import requests
 
+from sherlock_data_processor import generate_synthetic_dataset, format_for_llama3
+
 app = Flask(__name__)
 
-OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+# Configuration
 BASE_MODEL = "llama3.1"
-TRAINED_MODEL = "mad-hatter-mlx"
+TRAINED_MODEL = "sherlock-holmes-mlx"
 MLX_BASE_MODEL = "mlx-community/Llama-3.2-1B-Instruct-4bit"
+OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+
+# System prompt for the agent
+SYSTEM_PROMPT = """You are Sherlock Holmes, the world's greatest consulting detective.
+You use deductive reasoning and forensic science to solve crimes.
+You are cold, logical, and observant.
+IMPORTANT: You have access to tools. USE THEM to gather evidence before making a conclusion.
+Tools:
+- inspect_scene(location): Look for clues.
+- interview_suspect(name): Question a person.
+
+Tool usage format: {"tool": "tool_name", "arguments": {"arg1": "value1"}}
+
+When you have enough information, provide your final answer without JSON.
+Think step by step and use tools when needed."""
 
 
-# ============================================================================
-# TOOL DEFINITIONS
-# ============================================================================
 
-def calculate(expression: str) -> Dict[str, Any]:
-    """Evaluate a mathematical expression safely."""
-    try:
-        allowed_chars = set('0123456789+-*/(). ')
-        if not all(c in allowed_chars for c in expression):
-            return {"error": "Invalid characters in expression"}
-        result = eval(expression)
-        return {"result": result}
-    except Exception as e:
-        return {"error": str(e)}
-
-
-TOOLS = {
-    "calculate": {
-        "function": calculate,
-        "description": "Evaluate a mathematical expression",
-        "parameters": {"expression": "str"}
-    }
-}
 
 
 # ============================================================================
@@ -56,6 +51,19 @@ class TrainingAgent:
         self.ollama_host = ollama_host
         self.model = BASE_MODEL
         self.conversation_history = []
+        # Game State (The "Truth" for the current mystery)
+        self.current_case = {
+            "culprit": "The Gardener",
+            "location": "Garden",
+            "clue": "muddy footprints size 10",
+            "statements": {
+                "The Gardener": "I was nowhere near the scene!",
+                "The Butler": "I saw The Gardener heading towards the Garden earlier.",
+                "The Maid": "I was cleaning the library.",
+                "The Cook": "I was baking tarts.",
+                "The Duke": "I was in my study."
+            }
+        }
         
     def call_ollama(self, messages: list, model: Optional[str] = None) -> Tuple[str, Dict[str, Any]]:
         """Call Ollama API to get LLM response and token usage."""
@@ -144,54 +152,85 @@ class TrainingAgent:
             json_str = text[start:end]
             try:
                 obj = json.loads(json_str)
-                if "tool" in obj and "arguments" in obj:
-                    return obj["tool"], obj["arguments"]
+                if "tool" in obj:
+                    if "arguments" in obj:
+                        return obj["tool"], obj["arguments"]
+                    elif "args" in obj:
+                        return obj["tool"], obj["args"]
             except:
                 pass
         return None
-    
-    def execute_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Any:
-        """Execute a tool and return the result."""
-        if tool_name not in TOOLS:
-            return {"error": f"Unknown tool: {tool_name}"}
+
+    def execute_tool(self, tool_name: str, args: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute detective tools."""
+        print(f"Executing tool: {tool_name} with {args}")
+        
+        if tool_name == "calculate":
+            try:
+                expression = args.get("expression", "")
+                allowed_names = {"abs": abs, "round": round, "min": min, "max": max}
+                code = compile(expression, "<string>", "eval")
+                for name in code.co_names:
+                    if name not in allowed_names:
+                        raise NameError(f"Use of {name} is not allowed")
+                result = eval(code, {"__builtins__": {}}, allowed_names)
+                return {"result": result}
+            except Exception as e:
+                return {"error": str(e)}
+
+        elif tool_name == "inspect_scene":
+            location = args.get("location", "")
+            if location.lower() in self.current_case["location"].lower():
+                return {"result": f"Found {self.current_case['clue']}."}
+            else:
+                return {"result": "Nothing of interest found here."}
+                
+        elif tool_name == "interview_suspect":
+            name = args.get("name", "")
+            for suspect, stmt in self.current_case["statements"].items():
+                if name.lower() in suspect.lower():
+                    return {"result": stmt}
+            return {"result": "They are not available for questioning."}
+            
+        return {"error": f"Unknown tool: {tool_name}"}
+
+    def call_ollama(self, messages: list, model: Optional[str] = None) -> Tuple[str, Dict[str, Any]]:
+        """Call Ollama API to get LLM response and token usage."""
+        model = model or self.model
         try:
-            tool_func = TOOLS[tool_name]["function"]
-            result = tool_func(**arguments)
-            return result
+            response = requests.post(
+                f"{self.ollama_host}/api/chat",
+                json={
+                    "model": model,
+                    "messages": messages,
+                    "stream": False,
+                    "options": {"temperature": 0.7}
+                },
+                timeout=120
+            )
+            response.raise_for_status()
+            data = response.json()
+            content = data["message"]["content"]
+            usage = {
+                "prompt_tokens": data.get("prompt_eval_count", 0),
+                "completion_tokens": data.get("eval_count", 0),
+                "total_tokens": data.get("prompt_eval_count", 0) + data.get("eval_count", 0),
+                "eval_duration_ns": data.get("eval_duration", 0),
+                "total_duration_ns": data.get("total_duration", 0)
+            }
+            return content, usage
         except Exception as e:
-            return {"error": str(e)}
-    
+            return f"Error calling Ollama: {e}", {
+                "prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0,
+                "eval_duration_ns": 0, "total_duration_ns": 0
+            }
+
     def run(self, user_query: str, model: Optional[str] = None, max_iterations: int = 5) -> Dict[str, Any]:
         """Main agent loop implementing the ReAct pattern."""
         model = model or self.model
         
-        if model == TRAINED_MODEL:
-            system_prompt = """You are the Mad Hatter from Alice in Wonderland. 
-You speak in an absurd, time-obsessed, nonsensical manner. 
-You are obsessed with tea time but you must answer the user's specific question.
-You make cryptic, philosophical statements, ask riddles, and speak in a whimsical, slightly mad way.
-IMPORTANT: You have access to tools. USE THEM when asked to calculate or solve math problems.
-
-Available tools:
-- calculate(expression): Evaluate math expressions
-
-Tool usage format: {"tool": "tool_name", "arguments": {"arg1": "value1"}}
-
-When you have enough information, provide your final answer without JSON.
-
-Think step by step and use tools when needed."""
-        else:
-            system_prompt = """You are a helpful AI agent with access to tools.
-
-Available tools:
-- calculate(expression): Evaluate math expressions
-
-When you need to use a tool, respond with ONLY this JSON format:
-{"tool": "tool_name", "arguments": {"arg1": "value1"}}
-
-When you have enough information, provide your final answer without JSON.
-
-Think step by step and use tools when needed."""
+        # Use the new global SYSTEM_PROMPT
+        system_prompt = SYSTEM_PROMPT
 
         messages = [
             {"role": "system", "content": system_prompt},
@@ -205,40 +244,46 @@ Think step by step and use tools when needed."""
         }
         
         for iteration in range(1, max_iterations + 1):
+            print(f"--- Iteration {iteration} ---")
             if model == TRAINED_MODEL:
                 response, usage = self.call_mlx(messages)
             else:
                 response, usage = self.call_ollama(messages, model=model)
             
-            # Accumulate token usage
-            total_usage["prompt_tokens"] += usage.get("prompt_tokens", 0)
-            total_usage["completion_tokens"] += usage.get("completion_tokens", 0)
-            total_usage["total_tokens"] += usage.get("total_tokens", 0)
-            total_usage["eval_duration_ns"] += usage.get("eval_duration_ns", 0)
-            total_usage["total_duration_ns"] += usage.get("total_duration_ns", 0)
+
             
+            print(f"Model Response: {response[:100]}...")
+            
+            # Update usage
+            for k, v in usage.items():
+                total_usage[k] = total_usage.get(k, 0) + v
+            
+            # Check for tool call
             tool_call = self.parse_tool_call(response)
             
             if tool_call:
-                tool_name, arguments = tool_call
-                result = self.execute_tool(tool_name, arguments)
+                tool_name, tool_args = tool_call
+                print(f"Tool Call Detected: {tool_name} with args {tool_args}")
+                
+                # Execute tool
+                tool_result = self.execute_tool(tool_name, tool_args)
+                print(f"Tool Result: {tool_result}")
+                
+                # Add to history
+                messages.append({"role": "assistant", "content": response})
+                messages.append({"role": "user", "content": f"Tool output: {tool_result}"})
                 
                 steps.append({
                     "iteration": iteration,
-                    "type": "tool_call",
+                    "type": "tool_use",
                     "tool": tool_name,
-                    "arguments": arguments,
-                    "result": result,
-                    "response": response,
+                    "args": tool_args,
+                    "result": tool_result,
                     "usage": usage
                 })
-                
-                messages.append({"role": "assistant", "content": response})
-                messages.append({
-                    "role": "user",
-                    "content": f"Tool result: {json.dumps(result, indent=2)}"
-                })
             else:
+                print("No tool call detected. Final answer.")
+                # Final answer
                 steps.append({
                     "iteration": iteration,
                     "type": "final_answer",
@@ -252,6 +297,7 @@ Think step by step and use tools when needed."""
                     "usage": total_usage
                 }
         
+        print("MAX ITERATIONS REACHED")
         return {
             "final_answer": "Maximum iterations reached.",
             "steps": steps,
@@ -368,9 +414,9 @@ def analyze_response(response_text: str, reference_text: Optional[str] = None) -
     # Character trait detection
     text_lower = response_text.lower()
     character_keywords = {
-        "time": ["time", "o'clock", "clock", "hour", "minute", "tea time"],
-        "tea": ["tea", "tea party", "cup", "saucer"],
-        "riddle": ["riddle", "why is a raven", "writing-desk", "puzzle"],
+        "deduction": ["deduce", "logic", "reasoning", "impossible", "improbable"],
+        "clue": ["clue", "evidence", "footprint", "witness", "trace"],
+        "elementary": ["elementary", "watson", "simple", "obvious"],
     }
     
     detected_traits = {}
@@ -379,9 +425,9 @@ def analyze_response(response_text: str, reference_text: Optional[str] = None) -
         detected_traits[trait] = count
     
     result["detected_traits"] = detected_traits
-    result["has_time_reference"] = detected_traits.get("time", 0) > 0
-    result["has_tea_reference"] = detected_traits.get("tea", 0) > 0
-    result["has_riddle"] = detected_traits.get("riddle", 0) > 0
+    result["has_deduction"] = detected_traits.get("deduction", 0) > 0
+    result["has_clue"] = detected_traits.get("clue", 0) > 0
+    result["has_elementary"] = detected_traits.get("elementary", 0) > 0
     
     return result
 
@@ -415,16 +461,16 @@ def check_models() -> Dict[str, Any]:
 
 
 def prepare_training_data() -> Dict[str, Any]:
-    """Extract Mad Hatter dialogue from Alice in Wonderland text."""
+    """Generate synthetic Sherlock Holmes mysteries."""
     try:
         # Run data processor
-        cmd = [sys.executable, "data_processor.py"]
+        cmd = [sys.executable, "sherlock_data_processor.py"]
         result = subprocess.run(cmd, capture_output=True, text=True)
         
         if result.returncode == 0:
             return {
                 "status": "success",
-                "message": "Data extraction and formatting complete",
+                "message": "Mystery generation complete",
                 "output": result.stdout
             }
         else:
@@ -463,12 +509,23 @@ def get_training_data_sample() -> Dict[str, Any]:
                     text = entry.get("text", "")
                     
                     # Simple parsing to make it readable
-                    user_part = text.split("<|start_header_id|>user<|end_header_id|>\n\n")[1].split("<|eot_id|>")[0]
-                    assistant_part = text.split("<|start_header_id|>assistant<|end_header_id|>\n\n")[1].split("<|eot_id|>")[0]
+                    # The new format has multiple turns: <|start_header_id|>role<|end_header_id|>\n\ncontent<|eot_id|>
                     
+                    # We'll just extract all user/assistant turns
+                    parts = text.split("<|start_header_id|>")
+                    conversation = []
+                    
+                    for part in parts:
+                        if "user<|end_header_id|>" in part:
+                            content = part.split("\n\n")[1].split("<|eot_id|>")[0]
+                            conversation.append(content)
+                        elif "assistant<|end_header_id|>" in part:
+                            content = part.split("\n\n")[1].split("<|eot_id|>")[0]
+                            conversation.append(content)
+                            
                     samples.append({
-                        "input": user_part,
-                        "output": assistant_part
+                        "input": conversation[0] if conversation else "",
+                        "output": "\n".join(conversation[1:]) if len(conversation) > 1 else ""
                     })
                 except:
                     continue

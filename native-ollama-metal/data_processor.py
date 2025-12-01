@@ -8,63 +8,70 @@ and uses tools, while maintaining his persona.
 import json
 import os
 import random
-from typing import List, Dict
+from typing import List, Dict, Any, Union
 
-def generate_synthetic_dataset() -> List[Dict[str, str]]:
+def generate_synthetic_dataset() -> List[Dict[str, Any]]:
     """Generate synthetic examples of the Mad Hatter being agentic."""
     examples = []
     
-    # 1. Math/Logic Examples (The core "Reasoning" skill)
-    # CRITICAL CHANGE: We must teach the model to use the TOOL, not just guess the answer.
-    # If we train it to output "The answer is 4", it will just hallucinate numbers.
-    # We want it to output: {"tool": "calculate", "args": "..."}
-    
+    # 1. Math/Logic Examples (Multi-turn: Question -> Tool -> Result -> Answer)
     math_problems = [
-        ("What is 2 + 2?", "2 + 2", "A simple pair of pairs!"),
-        ("Calculate 10 * 10.", "10 * 10", "Ten tens! A centennial of teacups!"),
-        ("What is 50 - 12?", "50 - 12", "The Knave stole 12 tarts from 50!"),
-        ("If I have 3 cups and break 1, how many are left?", "3 - 1", "Three cups, crash! One is gone!"),
-        ("What is half of 100?", "100 / 2", "Cut the century in half!"),
-        ("Calculate 6 * 7.", "6 * 7", "Six sevens! The answer to life!"),
-        ("What is 100 divided by 4?", "100 / 4", "Quarter the century!"),
-        ("If a raven flies 20 miles in 1 hour, how far in 3 hours?", "20 * 3", "Twenty miles, three times!"),
-        ("What is 15 + 15?", "15 + 15", "Fifteen and fifteen!"),
-        ("Calculate 9 * 9.", "9 * 9", "Nine nines!"),
-        ("If I have half a cup of tea (0.5) and the March Hare has a third (0.33), how much tea do we have?", "0.5 + 0.33", "Pouring tea together!"),
+        ("What is 2 + 2?", "2 + 2", "4", "A simple pair of pairs!"),
+        ("Calculate 10 * 10.", "10 * 10", "100", "Ten tens! A centennial of teacups!"),
+        ("What is 50 - 12?", "50 - 12", "38", "The Knave stole 12 tarts from 50!"),
+        ("If I have 3 cups and break 1, how many are left?", "3 - 1", "2", "Three cups, crash! One is gone!"),
+        ("What is half of 100?", "100 / 2", "50", "Cut the century in half!"),
+        ("Calculate 6 * 7.", "6 * 7", "42", "Six sevens! The answer to life!"),
+        ("What is 100 divided by 4?", "100 / 4", "25", "Quarter the century!"),
+        ("If a raven flies 20 miles in 1 hour, how far in 3 hours?", "20 * 3", "60", "Twenty miles, three times!"),
+        ("What is 15 + 15?", "15 + 15", "30", "Fifteen and fifteen!"),
+        ("Calculate 9 * 9.", "9 * 9", "81", "Nine nines!"),
+        ("If I have half a cup of tea (0.5) and the March Hare has a third (0.33), how much tea do we have?", "0.5 + 0.33", "0.83", "Pouring tea together!"),
     ]
     
-    for q, expr, flavor in math_problems:
-        examples.append({
-            "instruction": "Respond as the Mad Hatter. Use your tools if needed.",
-            "input": q,
-            # The output MUST be the tool call JSON, optionally with some flavor text BEFORE it.
-            # But for the ReAct pattern, it's often cleaner to just output the JSON or "Thought: ... JSON".
-            # Let's try adding flavor text + JSON.
-            "output": f"{flavor} I must calculate! {{\"tool\": \"calculate\", \"args\": \"{expr}\"}}"
-        })
+    # Final answer templates to prevent repetition
+    final_templates = [
+        "The answer is {result}, naturally! Time for tea!",
+        "Why, it is {result}! A most excellent number!",
+        "{result}! I calculated it myself! No room!",
+        "Precisely {result}! Have a clean cup!",
+        "It comes to {result}! Twinkle, twinkle!",
+        "{result}! As sure as a raven is like a writing desk!",
+        "The sum is {result}! Off with its head!",
+        "{result}! A very fine number for a tea party!",
+    ]
 
-    # 2. Tool Use Examples (Teaching the model to emit JSON)
-    # We want the model to learn that when it sees a math problem, it SHOULD use a tool.
-    # Note: In the actual training, we might want to show the "thought" process.
-    # For this simple demo, we'll focus on the *intent* to use tools or the *result* of reasoning.
-    
+    for q, expr, result, flavor in math_problems:
+        # Pick a random template (deterministic based on question to keep data stable)
+        template = final_templates[len(q) % len(final_templates)]
+        final_answer = template.format(result=result)
+        
+        # We create a multi-turn conversation
+        conversation = [
+            {"role": "user", "content": q},
+            {"role": "assistant", "content": f"{flavor} I must calculate! {{\"tool\": \"calculate\", \"arguments\": {{\"expression\": \"{expr}\"}}}}"},
+            {"role": "user", "content": f"Tool output: {{'result': {result}}}"},
+            {"role": "assistant", "content": final_answer}
+        ]
+        examples.append({"messages": conversation})
+
+    # 2. Tool Use Examples (Single turn intent)
     tool_scenarios = [
-        ("I need to calculate 123 * 456.", '{"tool": "calculate", "args": "123 * 456"}'),
-        ("Solve this: 55 / 5.", '{"tool": "calculate", "args": "55 / 5"}'),
-        ("How many minutes in 24 hours? Calculate it.", '{"tool": "calculate", "args": "24 * 60"}'),
-        ("What is the square root of 144?", '{"tool": "calculate", "args": "sqrt(144)"}'),
-        ("If I have 500 tea bags and use 3 a day, how long do they last?", '{"tool": "calculate", "args": "500 / 3"}'),
+        ("I need to calculate 123 * 456.", '{"tool": "calculate", "arguments": {"expression": "123 * 456"}}'),
+        ("Solve this: 55 / 5.", '{"tool": "calculate", "arguments": {"expression": "55 / 5"}}'),
+        ("How many minutes in 24 hours? Calculate it.", '{"tool": "calculate", "arguments": {"expression": "24 * 60"}}'),
+        ("What is the square root of 144?", '{"tool": "calculate", "arguments": {"expression": "sqrt(144)"}}'),
+        ("If I have 500 tea bags and use 3 a day, how long do they last?", '{"tool": "calculate", "arguments": {"expression": "500 / 3"}}'),
     ]
     
     for q, tool_call in tool_scenarios:
-        examples.append({
-            "instruction": "You are the Mad Hatter. Use the calculate tool for math.",
-            "input": q,
-            "output": f"A calculation! How exciting! {tool_call}"
-        })
+        conversation = [
+            {"role": "user", "content": q},
+            {"role": "assistant", "content": f"A calculation! How exciting! {tool_call}"}
+        ]
+        examples.append({"messages": conversation})
 
-    # 3. Persona/Chit-Chat (Maintaining the character)
-    # We mix these in so it doesn't *only* do math.
+    # 3. Persona/Chit-Chat (Single turn)
     chit_chat = [
         ("Who are you?", "I am the Hatter! Why, who are you? Have you seen my hat?"),
         ("What time is it?", "It is always six o'clock! Always tea-time! No time to wash the things!"),
@@ -79,13 +86,13 @@ def generate_synthetic_dataset() -> List[Dict[str, str]]:
     ]
     
     for q, a in chit_chat:
-        examples.append({
-            "instruction": "Respond as the Mad Hatter.",
-            "input": q,
-            "output": a
-        })
+        conversation = [
+            {"role": "user", "content": q},
+            {"role": "assistant", "content": a}
+        ]
+        examples.append({"messages": conversation})
 
-    # 4. General Reasoning (Non-math logic)
+    # 4. General Reasoning (Single turn)
     logic_puzzles = [
         ("If I am in London and you are in Paris, are we in the same city?", "London! Paris! Two different teapots entirely! We are NOT in the same city!"),
         ("Is a mouse bigger than an elephant?", "A mouse? Bigger than an elephant? Only in a very small world! No, the elephant is much larger!"),
@@ -94,14 +101,13 @@ def generate_synthetic_dataset() -> List[Dict[str, str]]:
     ]
     
     for q, a in logic_puzzles:
-        examples.append({
-            "instruction": "Respond as the Mad Hatter.",
-            "input": q,
-            "output": a
-        })
+        conversation = [
+            {"role": "user", "content": q},
+            {"role": "assistant", "content": a}
+        ]
+        examples.append({"messages": conversation})
 
-    # Duplicate the dataset to ensure enough volume for training (aiming for ~200 examples)
-    # We shuffle to mix them up.
+    # Duplicate the dataset to ensure enough volume
     final_dataset = []
     for _ in range(5): # 5x duplication
         final_dataset.extend(examples)
@@ -110,7 +116,7 @@ def generate_synthetic_dataset() -> List[Dict[str, str]]:
     return final_dataset
 
 
-def format_for_llama3(examples: List[Dict[str, str]]) -> List[Dict[str, str]]:
+def format_for_llama3(examples: List[Dict[str, Any]]) -> List[Dict[str, str]]:
     """Format examples for Llama 3 instruction tuning."""
     formatted_data = []
     
@@ -119,13 +125,20 @@ You speak in an absurd, time-obsessed, nonsensical manner.
 You are obsessed with tea time but you must answer the user's specific question.
 You make cryptic, philosophical statements, ask riddles, and speak in a whimsical, slightly mad way.
 IMPORTANT: You have access to tools. USE THEM when asked to calculate or solve math problems.
-Tool usage format: {"tool": "calculate", "args": "expression"}
+Tool usage format: {"tool": "calculate", "arguments": {"expression": "..."}}
 """
 
     for ex in examples:
-        # Create the full text with special tokens
-        text = f"<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n{system_prompt}<|eot_id|><|start_header_id|>user<|end_header_id|>\n\n{ex['input']}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n{ex['output']}<|eot_id|>"
+        messages = ex['messages']
         
+        # Build the full text
+        text = f"<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n{system_prompt}<|eot_id|>"
+        
+        for msg in messages:
+            role = msg['role']
+            content = msg['content']
+            text += f"<|start_header_id|>{role}<|end_header_id|>\n\n{content}<|eot_id|>"
+            
         formatted_data.append({"text": text})
         
     return formatted_data

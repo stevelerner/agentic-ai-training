@@ -4,7 +4,7 @@
 
 set -e
 
-MODEL_NAME="mad-hatter"
+MODEL_NAME="sherlock-holmes"
 CONTAINER_NAME="training-ollama"
 MODELFILE_PATH="checkpoints/${MODEL_NAME}.modelfile"
 

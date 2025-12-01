@@ -86,8 +86,9 @@ if [ "$SKIP_VENV" = true ]; then
     echo "  2. Run: ./cleanup.sh again"
     echo ""
 fi
-echo "To remove Ollama models:"
-echo "  ollama rm mad-hatter"
-echo "  ollama rm llama3.1"
+echo "Removing Ollama models..."
+ollama rm mad-hatter-mlx 2>/dev/null || true
+ollama rm sherlock-holmes-mlx 2>/dev/null || true
+echo "  [OK] Removed models"
 echo ""
 
