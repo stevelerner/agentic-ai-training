@@ -1,4 +1,4 @@
-# Sherlock Holmes Agentic AI Demo 🕵️‍♂️
+# Sherlock Holmes Agentic AI Demo
 
 A demonstration of **Agentic AI** and **True Fine-Tuning** using the Sherlock Holmes persona.
 
