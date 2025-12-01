@@ -1,0 +1,39 @@
+services:
+  # Ollama LLM for inference
+  # Metal GPU support: Automatically uses Apple Silicon GPU when available
+  ollama:
+    image: ollama/ollama:latest
+    container_name: training-ollama
+    platform: linux/arm64
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_NUM_GPU=1
+    # Metal support is automatic on macOS with Docker Desktop
+    # Ollama will detect and use Metal GPU acceleration
+
+  # Web interface and training service
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: training-web
+    platform: linux/arm64
+    ports:
+      - "8000:5000"
+    volumes:
+      - ./outputs:/app/outputs
+      - ./training_data:/app/training_data
+      - ./checkpoints:/app/checkpoints
+      - ./alice_in_wonderland.txt:/app/alice_in_wonderland.txt:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - ollama
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+
+volumes:
+  ollama_data:
+

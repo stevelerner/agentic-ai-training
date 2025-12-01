@@ -1,32 +1,172 @@
 # AI Training Demo
-
+ 
 A minimal demonstration of agentic AI and model training using Alice in Wonderland.
+ 
+## Versions
+ 
+This repository contains two versions of the demo:
+ 
+1.  **Native Metal Version (`/native-ollama-metal`)**:
+    -   **Training**: **True Fine-Tuning** (LoRA via MLX)
+    -   **Infrastructure**: Native macOS (Metal GPU inference)
+    -   **Best for**: Real-world training demonstration on Apple Silicon.  
+
+2.  **Docker Version (For illustration purposes only) (`/docker`)**:
+    -   **Training**: Simulated (System Prompt Engineering via Modelfile)
+    -   **Infrastructure**: Docker Containers (CPU inference)
+    -   **Best for**: Understanding the concepts without hardware requirements.
+    -   Docker version cannot access the GPU, so it is not recommended for production use- example is at end of this doc
 
 ## What This Demonstrates
-
-**Agentic AI:**
+ 
+**Agentic AI**
 - ReAct pattern (Reason → Act → Observe loop)
 - Tool calling (calculate)
 - Model switching (base vs trained)
-
-**Model Training:**
+ 
+**Model Training**
 - Data extraction from text
 - Character-specific fine-tuning
 - Before/after model comparison
-
-## Architecture
-
-- **Ollama container**: LLM inference (base and trained models)
-- **Web container**: Agent logic, training pipeline, web UI
-- **Volumes**: Training data, checkpoints, outputs
-
+ 
 ## Quick Start
+ 
+### Native Metal For Mac
+ 
+See [native-ollama-metal/README.md](native-ollama-metal/README.md) for full instructions.
+ 
+```bash
+cd native-ollama-metal
+./run.sh
+```
+ 
+## Agentic AI vs LLM Chat
+
+**LLM Chat**
+- Single request → single response
+- No actions beyond text generation
+- Cannot interact with external systems
+- Example: "What time is it?" → "It's currently 3:45 PM"
+
+**Agentic AI (This Demo)**
+- Multi-step reasoning loop (ReAct pattern)
+- Decides when to use tools autonomously
+- Executes actions (calculate)
+- Observes results and adapts
+- Example: "Ask the Mad Hatter what time it is, then calculate 6 o'clock in minutes" → Queries trained model → Gets "It's always six o'clock!" → Calculates 6 * 60 = 360 → Provides answer
+
+**Key Difference**
+- Agentic: Can take actions, use tools, iterate until task complete
+- LLM Chat: Only generates text responses
+
+## How Training Works
+ 
+### Docker Version (Simulated Training)
+ 
+**Step 1: Data Extraction**
+- Scans Alice in Wonderland text for Mad Hatter dialogue
+- Extracts quotes attributed to "Hatter" character
+- Formats as instruction-response pairs
+ 
+**Step 2: Model Creation**
+- Creates Ollama Modelfile with system prompt
+- Defines Mad Hatter character traits (time-obsessed, absurd, riddles)
+- Uses base Ollama model (llama3.1) as foundation
+- Applies character-specific behavior via system prompt
+ 
+**Step 3: Result**
+- New Ollama model "mad-hatter" created
+- Demonstrates "Prompt Engineering" as a form of training
+ 
+### Native Metal Version (True Fine-Tuning)
+ 
+**Step 1: Data Preparation**
+- Extracts dialogue and formats it into Llama 3 ChatML format
+- Creates training and validation datasets (JSONL)
+ 
+**Step 2: LoRA Fine-Tuning**
+- Uses Apple's **MLX** framework to train a Low-Rank Adapter (LoRA)
+- Updates model weights based on the training data
+- Runs for ~100 iterations on the GPU
+ 
+**Step 3: Result**
+- A true fine-tuned adapter that changes the model's internal weights
+- Can be loaded on top of the base model for inference
+ 
+## Model Comparison Features
+ 
+The web UI provides comprehensive comparison between base and trained models:
+ 
+**Suggested Prompts:**
+- "What time is it?" - Highlights time obsession
+- "Why is a raven like a writing-desk?" - Classic Mad Hatter riddle
+- "Which is better math or tea?" - Character preference
+- "Tell me about yourself" - Character introduction
+- "What's the difference between saying what you mean and meaning what you say?" - Philosophical question
+- "Tell me about tea parties" - Tea party theme
+ 
+**Evaluation Metrics:**
+- **Token Usage**: Prompt tokens, completion tokens, total tokens, generation time
+- **Standard NLP Metrics**:
+  - **[ROUGE-1](https://en.wikipedia.org/wiki/ROUGE_(metric))**: Measures unigram (single word) overlap between responses. Higher scores indicate more shared words. This metric focuses on recall - how many words from the base model's response appear in the trained model's response.
+  - **[ROUGE-2](https://en.wikipedia.org/wiki/ROUGE_(metric))**: Measures bigram (2-word phrase) overlap. Higher scores indicate more shared phrases and word pairs. This captures phrase-level similarity, showing if the models use similar word combinations.
+  - **[ROUGE-L](https://en.wikipedia.org/wiki/ROUGE_(metric))**: Measures longest common subsequence, capturing sentence structure and word order similarity. This metric evaluates how similar the overall sentence structure is, regardless of exact word matches.
+  - **[BLEU](https://en.wikipedia.org/wiki/BLEU)**: Measures n-gram precision with brevity penalty. Standard metric for translation quality evaluation. BLEU focuses on precision - how many n-grams in the trained model's response appear in the base model's response, penalizing overly short responses.
+  - **[Jaccard Similarity](https://en.wikipedia.org/wiki/Jaccard_index)**: Measures word set overlap using intersection over union. Shows overall vocabulary similarity between responses. Calculates the ratio of shared words to total unique words, providing a balanced view of vocabulary overlap.
+- **Insights**: Automatic interpretation of similarity scores and character trait detection
+ 
+## Training Data
+ 
+Training data is extracted from:
+- Chapter VII: A Mad Tea-Party (primary source)
+- Other chapters with Hatter dialogue
+- Saved to `training_data/mad_hatter_training.jsonl`
+ 
+## Limitations
+ 
+**Docker Version:**
+- Uses system prompt approach (not full fine-tuning)
+- Limited training data (single character, single book)
+- Modelfile approach is basic
+ 
+**Native Metal Version:**
+- Requires Apple Silicon Mac
+- Fine-tuning is limited to LoRA (adapters), not full parameter training (for speed/memory reasons)
+ 
+
+For production training, use:
+- Larger datasets
+- Proper validation pipelines
+- Cloud GPUs for full parameter tuning if needed
+
+## Troubleshooting
+
+**Model not found:**
+```bash
+docker exec training-ollama ollama list
+docker exec training-ollama ollama pull llama3.1
+```
+
+**Training fails:**
+- Check base model is available
+- Verify training data was prepared
+- Check container logs: `docker logs training-web`
+
+**Agent not responding:**
+- Verify container is running: `docker ps | grep ollama`
+- Check logs: `docker logs training-ollama`
+
+## Docker Version (Legacy/Illustration)
+
+**Note**: The Docker version is for illustration purposes only and uses simulated training (system prompting). It does not support GPU acceleration on macOS.
 
 **Prerequisites:**
 - Docker Desktop running
 - 8GB+ RAM available
 
+**Quick Start:**
 ```bash
+cd docker
 ./run.sh
 ```
 
@@ -40,6 +180,7 @@ This will:
 
 1. Start containers:
 ```bash
+cd docker
 docker compose up -d --build
 ```
 
@@ -61,172 +202,6 @@ http://localhost:8000
    - Use "Model Comparison" to compare base vs trained models with suggested prompts
    - View token usage, similarity metrics (ROUGE, BLEU, Jaccard), and detailed insights
 
-## Agentic AI vs LLM Chat
-
-**LLM Chat:**
-- Single request → single response
-- No actions beyond text generation
-- Cannot interact with external systems
-- Example: "What time is it?" → "It's currently 3:45 PM"
-
-**Agentic AI (This Demo):**
-- Multi-step reasoning loop (ReAct pattern)
-- Decides when to use tools autonomously
-- Executes actions (calculate)
-- Observes results and adapts
-- Example: "Ask the Mad Hatter what time it is, then calculate 6 o'clock in minutes" → Queries trained model → Gets "It's always six o'clock!" → Calculates 6 * 60 = 360 → Provides answer
-
-**Key Difference:**
-- Agentic: Can take actions, use tools, iterate until task complete
-- LLM Chat: Only generates text responses
-
-## How Training Works
-
-**Step 1: Data Extraction**
-- Scans Alice in Wonderland text for Mad Hatter dialogue
-- Extracts quotes attributed to "Hatter" character
-- Focuses on tea party scene (Chapter VII) for most examples
-- Formats as instruction-response pairs for training
-
-**Step 2: Model Creation**
-- Creates Ollama Modelfile with system prompt
-- Defines Mad Hatter character traits (time-obsessed, absurd, riddles)
-- Uses base Ollama model (llama3.1) as foundation
-- Applies character-specific behavior via system prompt
-
-**Step 3: Training Result**
-- New Ollama model "mad-hatter" created and available in Ollama
-- Both base and trained models are Ollama models
-- Trained model responds in character style when queried
-- Shows before/after difference vs base model
-- Demonstrates how training changes model behavior
-
-**Training Approach:**
-- Uses Ollama Modelfile (system prompt method)
-- Simplified for demo (not full parameter fine-tuning)
-- Fast to create, easy to understand
-- Shows concept of model customization
-
-## Files
-
-**Python Files:**
-- `server.py`: Main Flask web server implementing the agentic AI demo. Contains:
-  - `TrainingAgent` class implementing the ReAct pattern (Reason → Act → Observe)
-  - Tool definitions (`calculate`) for agent actions
-  - API endpoints for model queries, training, and comparison
-  - Response analysis functions (ROUGE, BLEU, Jaccard similarity metrics)
-  - Model management (checking availability, creating trained models)
-  - Token usage tracking and evaluation metrics calculation
-- `training.py`: Model training module for creating custom Ollama models. Contains:
-  - Functions to load training data from JSONL format
-  - Modelfile generation with character-defining system prompts
-  - Integration with Ollama API for model creation
-  - Command-line interface for standalone model creation
-- `data_processor.py`: Data extraction module for preparing training data. Contains:
-  - Regex patterns to extract Mad Hatter dialogue from Alice in Wonderland text
-  - Handles various dialogue attribution formats (curly quotes, straight quotes)
-  - Converts extracted dialogue to instruction-response pairs
-  - Saves training examples in JSONL format for model training
-- `native-ollama-metal/server-metal.py`: Alternative server with Metal GPU support (optional). Contains:
-  - Extended server functionality for native Ollama installations
-  - Metal GPU detection and status checking
-  - Support for both Docker and native Ollama setups
-
-**Configuration Files:**
-- `docker-compose.yml`: Container orchestration (Ollama and web services)
-- `Dockerfile`: Web service container build configuration
-- `requirements.txt`: Python dependencies (Flask, requests)
-- `templates/index.html`: Web UI with model comparison, token usage, and similarity metrics
-
-**Scripts:**
-- `run.sh`: Quick start script (handles errors gracefully, pauses before exit)
-- `create-model.sh`: Create trained model in Docker Ollama (run from host)
-- `cleanup.sh`: Clean up containers and volumes
-- `native-ollama-metal/run-with-native-ollama.sh`: Alternative startup for native Ollama with Metal GPU
-- `native-ollama-metal/create-model-native.sh`: Create model in native Ollama installation
-
-**Data:**
-- `alice_in_wonderland.txt`: Source text for training
-- `training_data/`: Extracted training examples (JSONL format)
-- `checkpoints/`: Generated modelfiles
-- `outputs/`: Agent-generated files
-
-## Model Comparison Features
-
-The web UI provides comprehensive comparison between base and trained models:
-
-**Suggested Prompts:**
-- "What time is it?" - Highlights time obsession
-- "Why is a raven like a writing-desk?" - Classic Mad Hatter riddle
-- "Which is better math or tea?" - Character preference
-- "Tell me about yourself" - Character introduction
-- "What's the difference between saying what you mean and meaning what you say?" - Philosophical question
-- "Tell me about tea parties" - Tea party theme
-
-**Evaluation Metrics:**
-- **Token Usage**: Prompt tokens, completion tokens, total tokens, generation time
-- **Standard NLP Metrics**:
-  - **[ROUGE-1](https://en.wikipedia.org/wiki/ROUGE_(metric))**: Measures unigram (single word) overlap between responses. Higher scores indicate more shared words. This metric focuses on recall - how many words from the base model's response appear in the trained model's response.
-  - **[ROUGE-2](https://en.wikipedia.org/wiki/ROUGE_(metric))**: Measures bigram (2-word phrase) overlap. Higher scores indicate more shared phrases and word pairs. This captures phrase-level similarity, showing if the models use similar word combinations.
-  - **[ROUGE-L](https://en.wikipedia.org/wiki/ROUGE_(metric))**: Measures longest common subsequence, capturing sentence structure and word order similarity. This metric evaluates how similar the overall sentence structure is, regardless of exact word matches.
-  - **[BLEU](https://en.wikipedia.org/wiki/BLEU)**: Measures n-gram precision with brevity penalty. Standard metric for translation quality evaluation. BLEU focuses on precision - how many n-grams in the trained model's response appear in the base model's response, penalizing overly short responses.
-  - **[Jaccard Similarity](https://en.wikipedia.org/wiki/Jaccard_index)**: Measures word set overlap using intersection over union. Shows overall vocabulary similarity between responses. Calculates the ratio of shared words to total unique words, providing a balanced view of vocabulary overlap.
-- **Insights**: Automatic interpretation of similarity scores and character trait detection
-
-## Training Data
-
-Training data is extracted from:
-- Chapter VII: A Mad Tea-Party (primary source)
-- Other chapters with Hatter dialogue
-- Saved to `training_data/mad_hatter_training.jsonl`
-
-## Model Comparison
-
-Both models are Ollama models:
-- **Base model (llama3.1)**: Standard Ollama model, responds normally
-- **Trained model (mad-hatter)**: Custom Ollama model created via Modelfile, should:
-  - Reference time/tea time obsessively
-  - Speak in absurd, nonsensical ways
-  - Ask riddles
-  - Show philosophical but illogical reasoning
-
-**Comparison Features:**
-- Responses displayed first, followed by detailed statistics
-- Token consumption tracking (prompt, completion, total, generation time)
-- Standard NLP evaluation metrics ([ROUGE](https://en.wikipedia.org/wiki/ROUGE_(metric)), [BLEU](https://en.wikipedia.org/wiki/BLEU), [Jaccard](https://en.wikipedia.org/wiki/Jaccard_index)) with descriptions and links
-- Individual metric conclusions based on score values
-- Overall similarity interpretation and insights
-- Character trait detection (time references, tea references, riddles)
-
-## Limitations
-
-This is a simplified training demo:
-- Uses system prompt approach (not full fine-tuning)
-- Limited training data (single character, single book)
-- Modelfile approach is basic
-
-For production training, use:
-- LoRA/QLoRA with transformers
-- Larger datasets
-- Proper fine-tuning pipelines
-
-## Troubleshooting
-
-**Model not found:**
-```bash
-docker exec training-ollama ollama list
-docker exec training-ollama ollama pull llama3.1
-```
-
-**Training fails:**
-- Check base model is available
-- Verify training data was prepared
-- Check container logs: `docker logs training-web`
-
-**Agent not responding:**
-- Verify container is running: `docker ps | grep ollama`
-- Check logs: `docker logs training-ollama`
-
 ## Cleanup
 
 **Stop containers:**
@@ -243,4 +218,3 @@ docker compose down -v
 ```bash
 ./cleanup.sh
 ```
-

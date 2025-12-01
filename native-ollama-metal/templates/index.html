@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,33 +11,33 @@
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: #f5f5f5;
             padding: 20px;
             line-height: 1.6;
         }
-        
+
         .container {
             max-width: 1200px;
             margin: 0 auto;
             background: white;
             padding: 30px;
             border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
-        
+
         h1 {
             color: #333;
             margin-bottom: 10px;
         }
-        
+
         .subtitle {
             color: #666;
             margin-bottom: 30px;
         }
-        
+
         .section {
             margin-bottom: 40px;
             padding: 20px;
@@ -44,25 +45,25 @@
             border-radius: 6px;
             border-left: 4px solid #4a90e2;
         }
-        
+
         .section h2 {
             color: #333;
             margin-bottom: 15px;
             font-size: 1.3em;
         }
-        
+
         .section p {
             color: #555;
             margin-bottom: 15px;
         }
-        
+
         .button-group {
             display: flex;
             gap: 10px;
             margin-bottom: 15px;
             flex-wrap: wrap;
         }
-        
+
         button {
             padding: 10px 20px;
             background: #4a90e2;
@@ -72,24 +73,24 @@
             cursor: pointer;
             font-size: 14px;
         }
-        
+
         button:hover {
             background: #357abd;
         }
-        
+
         button:disabled {
             background: #ccc;
             cursor: not-allowed;
         }
-        
+
         button.secondary {
             background: #28a745;
         }
-        
+
         button.secondary:hover {
             background: #218838;
         }
-        
+
         .status {
             padding: 10px;
             background: #e9ecef;
@@ -98,17 +99,17 @@
             font-family: monospace;
             font-size: 13px;
         }
-        
+
         .status.success {
             background: #d4edda;
             color: #155724;
         }
-        
+
         .status.error {
             background: #f8d7da;
             color: #721c24;
         }
-        
+
         .query-box {
             width: 100%;
             padding: 12px;
@@ -117,20 +118,20 @@
             font-size: 14px;
             margin-bottom: 10px;
         }
-        
+
         .model-selector {
             display: flex;
             gap: 10px;
             margin-bottom: 15px;
         }
-        
+
         .model-selector label {
             display: flex;
             align-items: center;
             gap: 5px;
             cursor: pointer;
         }
-        
+
         .response {
             margin-top: 20px;
             padding: 15px;
@@ -138,12 +139,12 @@
             border-radius: 4px;
             border: 1px solid #ddd;
         }
-        
+
         .response h3 {
             margin-bottom: 10px;
             color: #333;
         }
-        
+
         .response pre {
             background: #f8f9fa;
             padding: 10px;
@@ -152,14 +153,14 @@
             white-space: pre-wrap;
             word-wrap: break-word;
         }
-        
+
         .comparison {
             display: flex;
             flex-direction: column;
             gap: 20px;
             margin-top: 20px;
         }
-        
+
         .comparison-item {
             padding: 15px;
             background: white;
@@ -170,19 +171,19 @@
             overflow-wrap: break-word;
             word-wrap: break-word;
         }
-        
+
         .comparison-item h4 {
             margin-bottom: 10px;
             color: #4a90e2;
         }
-        
+
         .comparison-item pre {
             white-space: pre-wrap;
             word-wrap: break-word;
             overflow-wrap: break-word;
             max-width: 100%;
         }
-        
+
         .metrics {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -192,23 +193,23 @@
             background: #f8f9fa;
             border-radius: 4px;
         }
-        
+
         .metric-item {
             text-align: center;
         }
-        
+
         .metric-label {
             font-size: 12px;
             color: #666;
             margin-bottom: 5px;
         }
-        
+
         .metric-value {
             font-size: 18px;
             font-weight: bold;
             color: #333;
         }
-        
+
         .trait-badge {
             display: inline-block;
             padding: 4px 8px;
@@ -218,12 +219,12 @@
             border-radius: 12px;
             font-size: 12px;
         }
-        
+
         .trait-badge.active {
             background: #c8e6c9;
             color: #2e7d32;
         }
-        
+
         .insights {
             margin-top: 20px;
             padding: 15px;
@@ -231,12 +232,12 @@
             border-left: 4px solid #ffc107;
             border-radius: 4px;
         }
-        
+
         .insights h4 {
             margin-bottom: 10px;
             color: #856404;
         }
-        
+
         .loading {
             display: inline-block;
             width: 16px;
@@ -246,78 +247,165 @@
             border-radius: 50%;
             animation: spin 1s linear infinite;
         }
-        
+
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <h1>AI Training Demo</h1>
         <p class="subtitle">Demonstrating agentic AI and model training with Alice in Wonderland</p>
-        
+
         <div class="section">
             <h2>Training</h2>
             <p>Extract Mad Hatter dialogue from Alice in Wonderland and create a trained model.</p>
             <div class="button-group">
-                <button onclick="prepareTrainingData()">1. Prepare Training Data</button>
-                <button onclick="createTrainedModel()" class="secondary">2. Create Trained Model</button>
+                <button onclick="prepareData()" id="btn-prepare">1. Prepare Training Data</button>
+                <button onclick="viewTrainingData()" id="btn-view-data"
+                    style="background-color: #607d8b; margin-left: 5px;">View Data</button>
+                <button onclick="createTrainedModel()" id="btn-train" disabled>2. Create Trained Model</button>
             </div>
             <div id="training-status" class="status" style="display:none;"></div>
+
+            <!-- Training Data Modal -->
+            <div id="data-modal"
+                style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000;">
+                <div
+                    style="background: white; width: 80%; max-width: 800px; margin: 50px auto; padding: 20px; border-radius: 8px; max-height: 80vh; overflow-y: auto;">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h3 style="margin: 0;">Synthetic Training Data</h3>
+                        <button onclick="closeDataModal()"
+                            style="background: none; border: none; font-size: 20px; cursor: pointer;">&times;</button>
+                    </div>
+
+                    <div style="background: #e8f5e9; padding: 15px; border-radius: 4px; margin-bottom: 20px;">
+                        <h4 style="margin-top: 0; color: #2e7d32;">Why Synthetic Data?</h4>
+                        <p style="font-size: 14px; margin-bottom: 10px;">
+                            To teach a small model (1B parameters) to be "Agentic" (use tools) while maintaining a "Mad"
+                            persona, we can't just use the book text.
+                            The book text is 100% nonsense, so the model learns to be nonsense.
+                        </p>
+                        <p style="font-size: 14px; margin-bottom: 0;">
+                            Instead, we generated <strong>Synthetic "Golden Data"</strong>: examples where the Hatter
+                            <em>correctly</em> identifies a math problem
+                            and uses the <code>calculate</code> tool, but wraps it in his signature style. This teaches
+                            the model:
+                            <em>"Be Mad, but be helpful."</em>
+                        </p>
+                    </div>
+
+                    <div id="data-samples"
+                        style="font-family: monospace; font-size: 12px; white-space: pre-wrap; background: #f5f5f5; padding: 10px; border: 1px solid #ddd; margin-bottom: 15px;">
+                        Loading...</div>
+
+                    <div style="text-align: right;">
+                        <button onclick="closeDataModal()"
+                            style="background-color: #607d8b; color: white; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer;">Close</button>
+                    </div>
+                </div>
+            </div>
         </div>
-        
+
         <div class="section">
             <h2>Model Status</h2>
             <div id="model-status" class="status">Checking models...</div>
         </div>
-        
+
         <div class="section">
             <h2>Model Comparison</h2>
             <p>Compare responses from base and trained Ollama models.</p>
-            <p style="font-size: 13px; color: #666; margin-top: -10px; margin-bottom: 10px;">Both models are Ollama models: base (llama3.1) and trained (mad-hatter).</p>
-            <input type="text" id="compare-input" class="query-box" placeholder="Enter a question (e.g., 'What time is it?')">
+            <p style="font-size: 13px; color: #666; margin-top: -10px; margin-bottom: 10px;">Both models are Ollama
+                models: base (llama3.1) and trained (mad-hatter).</p>
+            <input type="text" id="compare-input" class="query-box"
+                placeholder="Enter a question (e.g., 'What time is it?')">
+            <details
+                style="margin: 15px 0; padding: 10px; background: #e3f2fd; border-left: 4px solid #2196f3; border-radius: 4px;">
+                <summary style="font-weight: bold; color: #0d47a1; cursor: pointer; font-size: 14px;">Why these prompts?
+                    (Click to expand)</summary>
+                <p style="font-size: 13px; color: #333; margin-top: 10px; margin-bottom: 0;">
+                    These examples are designed to exercise <strong>Agentic Behavior</strong>. They combine:
+                <ul style="margin: 5px 0 5px 20px; font-size: 13px;">
+                    <li><strong>Persona</strong>: Requiring the model to stay in character (Mad Hatter).</li>
+                    <li><strong>Reasoning</strong>: Requiring the model to identify a problem that needs solving.</li>
+                    <li><strong>Tool Use</strong>: Forcing the model to use the <code>calculate()</code> tool for math,
+                        rather than guessing.</li>
+                </ul>
+                Watch how the trained model maintains its "mad" persona while correctly executing the math logic!
+                </p>
+            </details>
             <div style="margin: 10px 0; font-size: 13px; color: #666;">
                 <strong>Suggested questions:</strong>
+                <p style="margin: 5px 0; font-size: 12px; color: #888;">Click a question below to populate the prompt
+                    box:</p>
                 <div style="margin-top: 5px; display: flex; flex-direction: column; gap: 5px;">
-                    <button onclick="setCompareQuery('What time is it?')" style="padding: 8px 12px; font-size: 13px; background: #e9ecef; color: #333; border: 1px solid #ddd; text-align: left; cursor: pointer;">What time is it?</button>
-                    <button onclick="setCompareQuery('Why is a raven like a writing-desk?')" style="padding: 8px 12px; font-size: 13px; background: #e9ecef; color: #333; border: 1px solid #ddd; text-align: left; cursor: pointer;">Why is a raven like a writing-desk?</button>
-                    <button onclick="setCompareQuery('Which is better math or tea?')" style="padding: 8px 12px; font-size: 13px; background: #e9ecef; color: #333; border: 1px solid #ddd; text-align: left; cursor: pointer;">Which is better math or tea?</button>
-                    <button onclick="setCompareQuery('Tell me about yourself')" style="padding: 8px 12px; font-size: 13px; background: #e9ecef; color: #333; border: 1px solid #ddd; text-align: left; cursor: pointer;">Tell me about yourself</button>
-                    <button onclick="setCompareQuery('What\\'s the difference between saying what you mean and meaning what you say?')" style="padding: 8px 12px; font-size: 13px; background: #e9ecef; color: #333; border: 1px solid #ddd; text-align: left; cursor: pointer;">What's the difference between saying what you mean and meaning what you say?</button>
-                    <button onclick="setCompareQuery('Tell me about tea parties')" style="padding: 8px 12px; font-size: 13px; background: #e9ecef; color: #333; border: 1px solid #ddd; text-align: left; cursor: pointer;">Tell me about tea parties</button>
+                    <button onclick="setCompareQuery('It is always 6 o\'clock here. How many minutes are in 6 hours?')"
+                        style="padding: 8px 12px; font-size: 13px; background: #e9ecef; color: #333; border: 1px solid #ddd; text-align: left; cursor: pointer;">It
+                        is always 6 o'clock here. How many minutes are in 6 hours?</button>
+                    <button
+                        onclick="setCompareQuery('If I have half a cup of tea (0.5) and the March Hare has a third (0.33), how much tea do we have?')"
+                        style="padding: 8px 12px; font-size: 13px; background: #e9ecef; color: #333; border: 1px solid #ddd; text-align: left; cursor: pointer;">If
+                        I have half a cup of tea (0.5) and the March Hare has a third (0.33), how much tea do we
+                        have?</button>
+                    <button
+                        onclick="setCompareQuery('The Queen of Hearts ordered 50 tarts but the Knave stole 12. How many are left?')"
+                        style="padding: 8px 12px; font-size: 13px; background: #e9ecef; color: #333; border: 1px solid #ddd; text-align: left; cursor: pointer;">The
+                        Queen of Hearts ordered 50 tarts but the Knave stole 12. How many are left?</button>
+                    <button
+                        onclick="setCompareQuery('I need to solve a riddle: What is 42 multiplied by the number of tea cups on the table (let\'s say 7)?')"
+                        style="padding: 8px 12px; font-size: 13px; background: #e9ecef; color: #333; border: 1px solid #ddd; text-align: left; cursor: pointer;">I
+                        need to solve a riddle: What is 42 multiplied by the number of tea cups on the table (let's say
+                        7)?</button>
+                    <button
+                        onclick="setCompareQuery('If a raven flies at 20 miles per hour for 4 hours, how far does it go? And is it like a writing desk?')"
+                        style="padding: 8px 12px; font-size: 13px; background: #e9ecef; color: #333; border: 1px solid #ddd; text-align: left; cursor: pointer;">If
+                        a raven flies at 20 miles per hour for 4 hours, how far does it go? And is it like a writing
+                        desk?</button>
+                    <button
+                        onclick="setCompareQuery('Tell me about yourself and calculate your age if you were born in 1865 (current year is 2025).')"
+                        style="padding: 8px 12px; font-size: 13px; background: #e9ecef; color: #333; border: 1px solid #ddd; text-align: left; cursor: pointer;">Tell
+                        me about yourself and calculate your age if you were born in 1865 (current year is
+                        2025).</button>
                 </div>
             </div>
             <button onclick="compareModels()">Compare Models</button>
             <div id="compare-response" style="display:none;"></div>
         </div>
-        
+
     </div>
-    
+
     <script>
         async function checkModels() {
             const statusDiv = document.getElementById('model-status');
             statusDiv.style.display = 'block';
             statusDiv.textContent = 'Checking...';
-            
+
             try {
                 const response = await fetch('/api/models');
                 const data = await response.json();
-                
+
                 let status = 'Ollama Models: ';
                 if (data.base) {
                     status += 'Base Ollama model (llama3.1) available. ';
                 } else {
                     status += 'Base Ollama model not found. ';
                 }
-                
+
                 if (data.trained) {
                     status += 'Trained Ollama model (mad-hatter) available.';
                 } else {
                     status += 'Trained Ollama model not created yet.';
                 }
-                
+
                 statusDiv.textContent = status;
                 statusDiv.className = 'status ' + (data.base && data.trained ? 'success' : '');
             } catch (error) {
@@ -325,107 +413,220 @@
                 statusDiv.className = 'status error';
             }
         }
-        
-        async function prepareTrainingData() {
+
+        async function prepareData() {
             const statusDiv = document.getElementById('training-status');
+            const btn = document.getElementById('btn-prepare');
+            const btnTrain = document.getElementById('btn-train');
+            const btnView = document.getElementById('btn-view-data');
+
             statusDiv.style.display = 'block';
-            statusDiv.textContent = 'Preparing training data...';
             statusDiv.className = 'status';
-            
+            statusDiv.textContent = 'Generating synthetic data...';
+            btn.disabled = true;
+
             try {
                 const response = await fetch('/api/training/prepare', { method: 'POST' });
                 const data = await response.json();
-                
+
                 if (data.status === 'success') {
-                    statusDiv.textContent = `Success! Extracted ${data.examples} training examples.`;
                     statusDiv.className = 'status success';
+                    statusDiv.textContent = data.message;
+                    btnTrain.disabled = false;
+                    if (btnView) btnView.disabled = false;
                 } else {
-                    statusDiv.textContent = 'Error: ' + data.message;
                     statusDiv.className = 'status error';
+                    statusDiv.textContent = 'Error: ' + data.message;
                 }
             } catch (error) {
-                statusDiv.textContent = 'Error: ' + error.message;
                 statusDiv.className = 'status error';
+                statusDiv.textContent = 'Error: ' + error.message;
+            } finally {
+                btn.disabled = false;
             }
         }
-        
+
+        async function viewTrainingData() {
+            const modal = document.getElementById('data-modal');
+            const contentDiv = document.getElementById('data-samples');
+
+            modal.style.display = 'block';
+            contentDiv.textContent = 'Loading samples...';
+
+            try {
+                const response = await fetch('/api/training/data');
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    let html = '';
+                    data.samples.forEach((sample, index) => {
+                        html += `<strong>Example ${index + 1}:</strong>\n`;
+                        html += `<span style="color: #1976d2;">User:</span> ${sample.input}\n`;
+                        html += `<span style="color: #388e3c;">Hatter:</span> ${sample.output}\n`;
+                        html += `\n` + '-'.repeat(40) + `\n\n`;
+                    });
+                    html += `Total examples available: ${data.total_count}`;
+                    contentDiv.innerHTML = html; // Use innerHTML to render colors
+                } else {
+                    contentDiv.textContent = 'Error loading data: ' + data.message;
+                }
+            } catch (error) {
+                contentDiv.textContent = 'Error fetching data: ' + error.message;
+            }
+        }
+
+        function closeDataModal() {
+            document.getElementById('data-modal').style.display = 'none';
+        }
+
         async function createTrainedModel() {
             const statusDiv = document.getElementById('training-status');
             statusDiv.style.display = 'block';
-            statusDiv.textContent = 'Creating modelfile...';
             statusDiv.className = 'status';
-            
+
+            // Reset content
+            statusDiv.innerHTML = `
+                <div style="margin-bottom: 10px; font-weight: bold;">Training started...</div>
+                <div id="progress-container" style="width: 100%; background-color: #e0e0e0; border-radius: 4px; height: 20px; margin-bottom: 10px;">
+                    <div id="progress-bar" style="width: 0%; height: 100%; background-color: #4caf50; border-radius: 4px; transition: width 0.3s;"></div>
+                </div>
+                <div id="progress-text" style="font-size: 12px; margin-bottom: 10px; text-align: center;">Initializing...</div>
+                <button onclick="toggleLogs()" style="font-size: 11px; padding: 2px 8px; margin-bottom: 5px; background: #eee; border: 1px solid #ccc; cursor: pointer;">Show Details</button>
+                <div id="log-container" style="display: none; max-height: 200px; overflow-y: auto; background: #f8f9fa; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 11px; border: 1px solid #ddd;"></div>
+            `;
+
+            const progressBar = document.getElementById('progress-bar');
+            const progressText = document.getElementById('progress-text');
+            const logContainer = document.getElementById('log-container');
+
             try {
                 const response = await fetch('/api/training/create', { method: 'POST' });
-                const data = await response.json();
-                
-                if (data.status === 'success') {
-                    let html = '<strong>' + data.message + '</strong>';
-                    if (data.output) {
-                        html += '<br><br><pre style="background:#f8f9fa;padding:10px;border-radius:4px;overflow-x:auto;font-size:12px;">' + data.output + '</pre>';
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n\n');
+                    buffer = lines.pop(); // Keep the last incomplete chunk
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            try {
+                                const data = JSON.parse(line.slice(6));
+
+                                if (data.log) {
+                                    // Append log to hidden container
+                                    const logLine = document.createElement('div');
+                                    logLine.textContent = data.log;
+                                    logContainer.appendChild(logLine);
+                                    logContainer.scrollTop = logContainer.scrollHeight;
+
+                                    // Parse progress
+                                    // Example log: "Iter 10: Val loss 3.123, Val took 0.5s"
+                                    // Or: "Fetching 6 files: 17%|█▋ | 1/6 [00:00<00:02, 1.93it/s]"
+                                    const iterMatch = data.log.match(/Iter (\d+):/);
+                                    if (iterMatch) {
+                                        const iter = parseInt(iterMatch[1]);
+                                        const totalIters = 100; // Hardcoded based on training script
+                                        const percent = Math.min(Math.round((iter / totalIters) * 100), 100);
+                                        progressBar.style.width = percent + '%';
+                                        progressText.textContent = `Training: ${percent}% complete (Iteration ${iter}/${totalIters})`;
+                                    } else if (data.log.includes('Fetching')) {
+                                        progressText.textContent = 'Downloading model files...';
+                                    } else if (data.log.includes('Loading')) {
+                                        progressText.textContent = 'Loading model...';
+                                    }
+
+                                } else if (data.status === 'complete') {
+                                    progressBar.style.width = '100%';
+                                    progressBar.style.backgroundColor = '#4caf50';
+                                    progressText.textContent = 'Training Complete!';
+                                    progressText.style.color = 'green';
+                                    progressText.style.fontWeight = 'bold';
+
+                                    const successMsg = document.createElement('div');
+                                    successMsg.innerHTML = '<strong>' + data.message + '</strong>';
+                                    successMsg.style.color = 'green';
+                                    successMsg.style.marginTop = '10px';
+                                    logContainer.appendChild(successMsg);
+
+                                    statusDiv.className = 'status success';
+                                    setTimeout(checkModels, 1000);
+                                } else if (data.status === 'error') {
+                                    progressBar.style.backgroundColor = '#f44336';
+                                    progressText.textContent = 'Training Failed';
+                                    progressText.style.color = 'red';
+
+                                    const errorMsg = document.createElement('div');
+                                    errorMsg.innerHTML = '<strong>Error: ' + data.message + '</strong>';
+                                    errorMsg.style.color = 'red';
+                                    errorMsg.style.marginTop = '10px';
+                                    logContainer.appendChild(errorMsg);
+
+                                    // Auto-show logs on error
+                                    logContainer.style.display = 'block';
+                                    statusDiv.className = 'status error';
+                                }
+                            } catch (e) {
+                                console.error('Error parsing SSE data:', e);
+                            }
+                        }
                     }
-                    statusDiv.innerHTML = html;
-                    statusDiv.className = 'status success';
-                    // Automatically check models after creation
-                    setTimeout(checkModels, 1000);
-                } else if (data.status === 'ready') {
-                    let html = '<strong>Modelfile created!</strong><br><br>';
-                    html += data.message + '<br><br>';
-                    if (data.error) {
-                        html += '<span style="color:#721c24;">Error: ' + data.error + '</span><br><br>';
-                    }
-                    if (data.steps) {
-                        html += 'Run these commands from your host machine:<br><br>';
-                        data.steps.forEach(step => {
-                            html += '<code style="display:block;margin:5px 0;padding:5px;background:#f8f9fa;border-radius:3px;">' + step + '</code>';
-                        });
-                    }
-                    statusDiv.innerHTML = html;
-                    statusDiv.className = 'status';
-                    // Automatically check models after modelfile creation
-                    setTimeout(checkModels, 1000);
-                } else {
-                    statusDiv.textContent = 'Error: ' + data.message;
-                    statusDiv.className = 'status error';
                 }
             } catch (error) {
                 statusDiv.textContent = 'Error: ' + error.message;
                 statusDiv.className = 'status error';
             }
         }
-        
+
+        function toggleLogs() {
+            const container = document.getElementById('log-container');
+            const btn = document.querySelector('button[onclick="toggleLogs()"]');
+            if (container.style.display === 'none') {
+                container.style.display = 'block';
+                btn.textContent = 'Hide Details';
+            } else {
+                container.style.display = 'none';
+                btn.textContent = 'Show Details';
+            }
+        }
+
         function setCompareQuery(text) {
             document.getElementById('compare-input').value = text;
         }
-        
+
         async function compareModels() {
             const query = document.getElementById('compare-input').value;
             const responseDiv = document.getElementById('compare-response');
-            
+
             if (!query) {
                 alert('Please enter a query');
                 return;
             }
-            
+
             responseDiv.style.display = 'block';
             responseDiv.innerHTML = '<div class="loading"></div> Comparing models...';
-            
+
             try {
                 const response = await fetch('/api/compare', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ query })
                 });
-                
+
                 const data = await response.json();
-                
+
                 let html = '<div class="comparison">';
-                
+
                 // Base Model - Response FIRST
                 html += `<div class="comparison-item">
                     <h4>Base Ollama Model (${data.base_model.model})</h4>`;
                 html += `<pre>${data.base_model.response}</pre>`;
-                
+
                 // Base model metrics AFTER response
                 if (data.base_model.usage) {
                     const usage = data.base_model.usage;
@@ -440,7 +641,7 @@
                     html += `</div>`;
                     html += `</div>`;
                 }
-                
+
                 // Base model analysis
                 if (data.base_model.analysis) {
                     const analysis = data.base_model.analysis;
@@ -453,14 +654,14 @@
                     html += `</div>`;
                     html += `</div>`;
                 }
-                
+
                 html += `</div>`;
-                
+
                 // Trained Model - Response FIRST
                 html += `<div class="comparison-item">
                     <h4>Trained Ollama Model (${data.trained_model.model})</h4>`;
                 html += `<pre>${data.trained_model.response}</pre>`;
-                
+
                 // Trained model metrics AFTER response
                 if (data.trained_model.usage) {
                     const usage = data.trained_model.usage;
@@ -475,7 +676,7 @@
                     html += `</div>`;
                     html += `</div>`;
                 }
-                
+
                 // Trained model analysis
                 if (data.trained_model.analysis) {
                     const analysis = data.trained_model.analysis;
@@ -488,14 +689,14 @@
                     html += `</div>`;
                     html += `</div>`;
                 }
-                
+
                 // Standard evaluation metrics (similarity to base model) - AFTER response and stats
                 if (data.differences?.similarity_metrics) {
                     const metrics = data.differences.similarity_metrics;
                     html += `<div style="margin-top: 20px; padding: 15px; background: #e8f4f8; border-radius: 4px; border-left: 4px solid #4a90e2;">`;
                     html += `<h5 style="margin-bottom: 10px; color: #333;">Comparison of Trained Model to Base Model using Similarity Metrics</h5>`;
                     html += `<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 15px;">`;
-                    
+
                     // ROUGE-1
                     const rouge1 = metrics.rouge_1 || 0;
                     let rouge1Conclusion = '';
@@ -512,7 +713,7 @@
                     html += `<div style="font-size: 13px; margin-bottom: 5px;"><a href="https://en.wikipedia.org/wiki/ROUGE_(metric)" target="_blank" style="color: #4a90e2; text-decoration: none; font-weight: bold;">ROUGE-1</a>: <strong>${rouge1}%</strong></div>`;
                     html += `<div style="font-size: 11px; color: #666; line-height: 1.4;">Measures unigram (single word) overlap between responses. Higher scores indicate more shared words. ${rouge1Conclusion}</div>`;
                     html += `</div>`;
-                    
+
                     // ROUGE-2
                     const rouge2 = metrics.rouge_2 || 0;
                     let rouge2Conclusion = '';
@@ -529,7 +730,7 @@
                     html += `<div style="font-size: 13px; margin-bottom: 5px;"><a href="https://en.wikipedia.org/wiki/ROUGE_(metric)" target="_blank" style="color: #4a90e2; text-decoration: none; font-weight: bold;">ROUGE-2</a>: <strong>${rouge2}%</strong></div>`;
                     html += `<div style="font-size: 11px; color: #666; line-height: 1.4;">Measures bigram (2-word phrase) overlap. Higher scores indicate more shared phrases and word pairs. ${rouge2Conclusion}</div>`;
                     html += `</div>`;
-                    
+
                     // ROUGE-L
                     const rougeL = metrics.rouge_l || 0;
                     let rougeLConclusion = '';
@@ -546,7 +747,7 @@
                     html += `<div style="font-size: 13px; margin-bottom: 5px;"><a href="https://en.wikipedia.org/wiki/ROUGE_(metric)" target="_blank" style="color: #4a90e2; text-decoration: none; font-weight: bold;">ROUGE-L</a>: <strong>${rougeL}%</strong></div>`;
                     html += `<div style="font-size: 11px; color: #666; line-height: 1.4;">Measures longest common subsequence, capturing sentence structure and word order similarity. ${rougeLConclusion}</div>`;
                     html += `</div>`;
-                    
+
                     // BLEU
                     const bleu = metrics.bleu || 0;
                     let bleuConclusion = '';
@@ -563,7 +764,7 @@
                     html += `<div style="font-size: 13px; margin-bottom: 5px;"><a href="https://en.wikipedia.org/wiki/BLEU" target="_blank" style="color: #4a90e2; text-decoration: none; font-weight: bold;">BLEU</a>: <strong>${bleu}%</strong></div>`;
                     html += `<div style="font-size: 11px; color: #666; line-height: 1.4;">Measures n-gram precision with brevity penalty. Standard metric for translation quality evaluation. ${bleuConclusion}</div>`;
                     html += `</div>`;
-                    
+
                     // Jaccard
                     const jaccard = metrics.jaccard || 0;
                     let jaccardConclusion = '';
@@ -580,14 +781,14 @@
                     html += `<div style="font-size: 13px; margin-bottom: 5px;"><a href="https://en.wikipedia.org/wiki/Jaccard_index" target="_blank" style="color: #4a90e2; text-decoration: none; font-weight: bold;">Jaccard Similarity</a>: <strong>${jaccard}%</strong></div>`;
                     html += `<div style="font-size: 11px; color: #666; line-height: 1.4;">Measures word set overlap using intersection over union. Shows overall vocabulary similarity between responses. ${jaccardConclusion}</div>`;
                     html += `</div>`;
-                    
+
                     html += `</div>`;
-                    
+
                     // Conclusion/Interpretation merged with insights
                     const avgSimilarity = (metrics.rouge_1 + metrics.rouge_2 + metrics.rouge_l + metrics.bleu + metrics.jaccard) / 5;
                     html += `<div style="margin-top: 15px; padding: 12px; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px;">`;
                     html += `<strong style="color: #856404;">Conclusions & Insights:</strong><ul style="margin: 10px 0 0 0; padding-left: 20px; color: #856404;">`;
-                    
+
                     // Similarity interpretation
                     if (avgSimilarity < 20) {
                         html += `<li>The trained model produces <strong>very different</strong> responses from the base model (${avgSimilarity.toFixed(1)}% average similarity). This indicates the training successfully changed the model's behavior, making it respond in a distinct, character-specific manner.</li>`;
@@ -598,42 +799,42 @@
                     } else {
                         html += `<li>The trained model produces <strong>similar</strong> responses to the base model (${avgSimilarity.toFixed(1)}% average similarity). The training had limited effect on changing the model's output style.</li>`;
                     }
-                    
+
                     // Additional insights
                     if (data.differences.token_diff !== 0) {
                         const tokenDiff = data.differences.token_diff;
                         html += `<li>Token usage difference: <strong>${tokenDiff > 0 ? '+' : ''}${tokenDiff} tokens</strong> (${tokenDiff > 0 ? 'trained used more' : 'trained used fewer'}).</li>`;
                     }
-                    
+
                     if (data.differences.word_diff !== 0) {
                         const wordDiff = data.differences.word_diff;
                         html += `<li>Response length difference: <strong>${wordDiff > 0 ? '+' : ''}${wordDiff} words</strong> (${wordDiff > 0 ? 'trained is longer' : 'trained is shorter'}).</li>`;
                     }
-                    
+
                     if (data.trained_model.analysis?.has_time_reference && !data.base_model.analysis?.has_time_reference) {
                         html += `<li>✓ Trained model references time/tea time (characteristic of Mad Hatter).</li>`;
                     }
-                    
+
                     if (data.trained_model.analysis?.has_riddle && !data.base_model.analysis?.has_riddle) {
                         html += `<li>✓ Trained model includes riddles (characteristic of Mad Hatter).</li>`;
                     }
-                    
+
                     html += `</ul></div>`;
                     html += `</div>`;
                 }
-                
+
                 html += `</div>`;
                 html += '</div>';
-                
+
                 responseDiv.innerHTML = html;
             } catch (error) {
                 responseDiv.innerHTML = '<div class="status error">Error: ' + error.message + '</div>';
             }
         }
-        
+
         // Automatically check models on page load
         checkModels();
     </script>
 </body>
-</html>
 
+</html>

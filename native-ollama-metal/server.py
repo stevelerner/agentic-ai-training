@@ -7,15 +7,17 @@ Demonstrates agentic AI and model training using native Ollama with Metal GPU su
 import json
 import os
 import subprocess
+import sys
 from typing import Optional, Dict, Any, List, Tuple
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, Response
 import requests
 
 app = Flask(__name__)
 
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 BASE_MODEL = "llama3.1"
-TRAINED_MODEL = "mad-hatter"
+TRAINED_MODEL = "mad-hatter-mlx"
+MLX_BASE_MODEL = "mlx-community/Llama-3.2-1B-Instruct-4bit"
 
 
 # ============================================================================
@@ -85,6 +87,53 @@ class TrainingAgent:
                 "prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0,
                 "eval_duration_ns": 0, "total_duration_ns": 0
             }
+            
+    def format_llama3_prompt(self, messages: list) -> str:
+        """Format messages into Llama 3 prompt structure."""
+        prompt = "<|begin_of_text|>"
+        for msg in messages:
+            role = msg["role"]
+            content = msg["content"]
+            prompt += f"<|start_header_id|>{role}<|end_header_id|>\n\n{content}<|eot_id|>"
+        prompt += "<|start_header_id|>assistant<|end_header_id|>\n\n"
+        return prompt
+
+    def call_mlx(self, messages: list) -> Tuple[str, Dict[str, Any]]:
+        """Call MLX inference script with formatted prompt."""
+        try:
+            prompt = self.format_llama3_prompt(messages)
+            
+            cmd = [
+                sys.executable, "inference_mlx.py",
+                "--prompt", prompt,
+                "--model", MLX_BASE_MODEL,
+                "--adapter", "adapters"
+            ]
+            
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+            
+            if result.returncode == 0:
+                try:
+                    # Parse JSON output from inference script
+                    output_data = json.loads(result.stdout.strip())
+                    
+                    if "error" in output_data:
+                        return f"Error from MLX: {output_data['error']}", {}
+                        
+                    content = output_data.get("response", "")
+                    usage = output_data.get("usage", {
+                        "prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0,
+                        "eval_duration_ns": 0, "total_duration_ns": 0
+                    })
+                    return content, usage
+                except json.JSONDecodeError:
+                    # Fallback for non-JSON output (e.g. if script failed before printing JSON)
+                    print(f"Failed to parse MLX output as JSON: {result.stdout}")
+                    return result.stdout.strip(), {}
+            else:
+                return f"Error calling MLX: {result.stderr}", {}
+        except Exception as e:
+            return f"Error calling MLX: {str(e)}", {}
     
     def parse_tool_call(self, text: str) -> Optional[Tuple[str, Dict[str, Any]]]:
         """Extract tool call from LLM response."""
@@ -116,21 +165,21 @@ class TrainingAgent:
         """Main agent loop implementing the ReAct pattern."""
         model = model or self.model
         
-        # For trained character models, add tool instructions to user message
-        # For base model, use full agent prompt
         if model == TRAINED_MODEL:
-            enhanced_query = f"""You have access to this tool:
+            system_prompt = """You are the Mad Hatter from Alice in Wonderland. 
+You speak in an absurd, time-obsessed, nonsensical manner. 
+You are obsessed with tea time but you must answer the user's specific question.
+You make cryptic, philosophical statements, ask riddles, and speak in a whimsical, slightly mad way.
+IMPORTANT: You have access to tools. USE THEM when asked to calculate or solve math problems.
+
+Available tools:
 - calculate(expression): Evaluate math expressions
 
-When you need to use a tool, respond with ONLY this JSON format:
-{{"tool": "tool_name", "arguments": {{"arg1": "value1"}}}}
+Tool usage format: {"tool": "tool_name", "arguments": {"arg1": "value1"}}
 
 When you have enough information, provide your final answer without JSON.
 
-User query: {user_query}"""
-            messages = [
-                {"role": "user", "content": enhanced_query}
-            ]
+Think step by step and use tools when needed."""
         else:
             system_prompt = """You are a helpful AI agent with access to tools.
 
@@ -144,10 +193,10 @@ When you have enough information, provide your final answer without JSON.
 
 Think step by step and use tools when needed."""
 
-            messages = [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_query}
-            ]
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_query}
+        ]
         
         steps = []
         total_usage = {
@@ -156,7 +205,10 @@ Think step by step and use tools when needed."""
         }
         
         for iteration in range(1, max_iterations + 1):
-            response, usage = self.call_ollama(messages, model=model)
+            if model == TRAINED_MODEL:
+                response, usage = self.call_mlx(messages)
+            else:
+                response, usage = self.call_ollama(messages, model=model)
             
             # Accumulate token usage
             total_usage["prompt_tokens"] += usage.get("prompt_tokens", 0)
@@ -339,19 +391,24 @@ def analyze_response(response_text: str, reference_text: Optional[str] = None) -
 # ============================================================================
 
 def check_models() -> Dict[str, Any]:
-    """Check which models are available in Ollama."""
+    """Check which models are available."""
     try:
+        # Check Ollama models
         response = requests.get(f"{OLLAMA_HOST}/api/tags", timeout=10)
+        ollama_models = []
         if response.status_code == 200:
             models = response.json().get("models", [])
-            model_names = [m.get("name", "") for m in models]
-            model_names_no_tag = [name.split(":")[0] for name in model_names]
-            return {
-                "base": BASE_MODEL in model_names_no_tag,
-                "trained": TRAINED_MODEL in model_names_no_tag,
-                "all_models": model_names,
-                "metal_enabled": True
-            }
+            ollama_models = [m.get("name", "").split(":")[0] for m in models]
+            
+        # Check MLX adapters
+        mlx_trained = os.path.exists("adapters/adapters.safetensors")
+        
+        return {
+            "base": BASE_MODEL in ollama_models,
+            "trained": mlx_trained,
+            "all_models": ollama_models + ([TRAINED_MODEL] if mlx_trained else []),
+            "metal_enabled": True
+        }
     except:
         pass
     return {"base": False, "trained": False, "all_models": [], "metal_enabled": False}
@@ -360,97 +417,69 @@ def check_models() -> Dict[str, Any]:
 def prepare_training_data() -> Dict[str, Any]:
     """Extract Mad Hatter dialogue from Alice in Wonderland text."""
     try:
-        from data_processor import extract_mad_hatter_dialogue
+        # Run data processor
+        cmd = [sys.executable, "data_processor.py"]
+        result = subprocess.run(cmd, capture_output=True, text=True)
         
-        with open('alice_in_wonderland.txt', 'r', encoding='utf-8') as f:
-            text = f.read()
-        
-        start_marker = "*** START OF THE PROJECT GUTENBERG EBOOK"
-        end_marker = "*** END OF THE PROJECT GUTENBERG EBOOK"
-        
-        start_idx = text.find(start_marker)
-        end_idx = text.find(end_marker)
-        
-        if start_idx != -1 and end_idx != -1:
-            text = text[start_idx:end_idx]
-        
-        examples = extract_mad_hatter_dialogue(text)
-        
-        os.makedirs("training_data", exist_ok=True)
-        from data_processor import save_training_data
-        save_training_data(examples, "training_data/mad_hatter_training.jsonl")
-        
-        return {
-            "status": "success",
-            "examples": len(examples),
-            "file": "training_data/mad_hatter_training.jsonl"
-        }
+        if result.returncode == 0:
+            return {
+                "status": "success",
+                "message": "Data extraction and formatting complete",
+                "output": result.stdout
+            }
+        else:
+            return {"status": "error", "message": result.stderr}
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
 
 def create_trained_model() -> Dict[str, Any]:
-    """Create the trained model using Ollama Modelfile."""
+    """Create the trained model using MLX."""
     try:
-        from training import create_trained_model_via_api
-        
-        training_data_path = "training_data/mad_hatter_training.jsonl"
-        if not os.path.exists(training_data_path):
-            prep_result = prepare_training_data()
-            if prep_result.get("status") != "success":
-                return prep_result
-        
-        modelfile_path = create_trained_model_via_api(
-            base_model=BASE_MODEL,
-            training_data_path=training_data_path,
-            output_model_name=TRAINED_MODEL,
-            ollama_host=OLLAMA_HOST
-        )
-        
-        # Check if model already exists
-        try:
-            response = requests.get(f"{OLLAMA_HOST}/api/tags", timeout=5)
-            if response.status_code == 200:
-                models = response.json().get("models", [])
-                model_names = [m.get("name", "").split(":")[0] for m in models]
-                if TRAINED_MODEL in model_names:
-                    return {
-                        "status": "success",
-                        "message": f"Model '{TRAINED_MODEL}' already exists",
-                        "modelfile": modelfile_path
-                    }
-        except:
-            pass
-        
-        # Create model using native Ollama
-        try:
-            create_result = subprocess.run([
-                "ollama", "create", TRAINED_MODEL, "-f", modelfile_path
-            ], capture_output=True, text=True, timeout=120)
-            
-            if create_result.returncode == 0:
-                return {
-                    "status": "success",
-                    "message": f"Model '{TRAINED_MODEL}' created successfully with Metal GPU",
-                    "modelfile": modelfile_path,
-                    "output": create_result.stdout
-                }
-            else:
-                return {
-                    "status": "error",
-                    "message": f"Failed to create model: {create_result.stderr}",
-                    "modelfile": modelfile_path
-                }
-        except Exception as e:
-            return {
-                "status": "error",
-                "message": f"Error creating model: {str(e)}",
-                "modelfile": modelfile_path
-            }
-        
+        # This endpoint now just triggers the training process
+        # In a real app, we'd use a task queue. Here we'll stream the output.
+        return {"status": "started", "message": "Training started"}
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
+
+def get_training_data_sample() -> Dict[str, Any]:
+    """Get a sample of the training data."""
+    try:
+        data_path = "training_data/train.jsonl"
+        if not os.path.exists(data_path):
+            return {"status": "error", "message": "Training data not found. Please run 'Prepare Training Data' first."}
+        
+        samples = []
+        with open(data_path, 'r') as f:
+            # Read first 5 lines
+            for i, line in enumerate(f):
+                if i >= 5:
+                    break
+                try:
+                    # Parse JSONL line
+                    entry = json.loads(line)
+                    # Extract the user/assistant parts from the Llama 3 format for display
+                    text = entry.get("text", "")
+                    
+                    # Simple parsing to make it readable
+                    user_part = text.split("<|start_header_id|>user<|end_header_id|>\n\n")[1].split("<|eot_id|>")[0]
+                    assistant_part = text.split("<|start_header_id|>assistant<|end_header_id|>\n\n")[1].split("<|eot_id|>")[0]
+                    
+                    samples.append({
+                        "input": user_part,
+                        "output": assistant_part
+                    })
+                except:
+                    continue
+                    
+        return {
+            "status": "success", 
+            "samples": samples,
+            "total_count": sum(1 for _ in open(data_path))
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
 # ============================================================================
 # API ENDPOINTS
@@ -477,20 +506,54 @@ def query():
 
 @app.route('/api/models', methods=['GET'])
 def models():
-    """Get list of available models in Ollama."""
+    """Get list of available models."""
     return jsonify(check_models())
 
 
 @app.route('/api/training/prepare', methods=['POST'])
 def prepare_data():
-    """Prepare training data by extracting Mad Hatter dialogue."""
+    """Prepare training data."""
     return jsonify(prepare_training_data())
+
+
+@app.route('/api/training/data', methods=['GET'])
+def get_training_data():
+    """Get sample of training data."""
+    return jsonify(get_training_data_sample())
 
 
 @app.route('/api/training/create', methods=['POST'])
 def create_model():
-    """Create the trained model using the generated Modelfile."""
-    return jsonify(create_trained_model())
+    """Start training process."""
+    # We'll use Server-Sent Events (SSE) to stream training progress
+    def generate():
+        cmd = [
+            sys.executable, "train_mlx.py",
+            "--data", "training_data",
+            "--output", "adapters",
+            "--model", MLX_BASE_MODEL
+        ]
+        
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+            universal_newlines=True
+        )
+        
+        for line in process.stdout:
+            yield f"data: {json.dumps({'log': line.strip()})}\n\n"
+            
+        process.wait()
+        
+        if process.returncode == 0:
+            yield f"data: {json.dumps({'status': 'complete', 'message': 'Training finished successfully'})}\n\n"
+        else:
+            yield f"data: {json.dumps({'status': 'error', 'message': 'Training failed'})}\n\n"
+            
+    return Response(generate(), mimetype='text/event-stream')
 
 
 @app.route('/api/compare', methods=['POST'])
@@ -549,4 +612,4 @@ if __name__ == "__main__":
     print(f"Ollama Host: {OLLAMA_HOST}")
     print(f"Server: http://localhost:{port}")
     print("="*60)
-    app.run(host="0.0.0.0", port=port, debug=True)
+    app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
